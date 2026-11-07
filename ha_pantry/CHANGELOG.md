@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+
+- Add category and location tags, which can be set on a product and renamed or deleted from a new tags page.
+- Add search by name, brand, barcode or tag, and filtering by tag.
+- Sort the product list without regard to case.
+
 ## 0.3.0
 
 - Look up unknown barcodes on Open Food Facts to pre-fill the name, brand and image. Nothing is saved until you confirm, and if the lookup fails you can still enter the details by hand.

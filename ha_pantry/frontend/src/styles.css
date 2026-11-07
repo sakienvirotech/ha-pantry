@@ -138,3 +138,48 @@ select {
   margin-top: 4px;
   font-size: 0.8rem;
 }
+
+.search {
+  width: 100%;
+  margin-top: 16px;
+  box-sizing: border-box;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.chips button[aria-pressed="true"] {
+  background: #1b7f4b;
+  color: #fff;
+  border: 0;
+  border-radius: 4px;
+}
+
+fieldset {
+  margin: 0;
+  padding: 8px 12px 12px;
+  border: 1px solid #8888;
+  border-radius: 4px;
+}
+
+.new-tag,
+.tag-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.new-tag input,
+.tag-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.tag-row span {
+  align-self: center;
+  white-space: nowrap;
+}

@@ -1,10 +1,13 @@
 import { useState } from "preact/hooks";
-import type { Product, ProductDetails } from "./api";
+import type { Product, ProductDetails, Tag, TagKind } from "./api";
 import { ProductForm } from "./ProductForm";
 import { ProductImage } from "./ProductImage";
 
 interface Props {
   product: Product;
+  tags: Tag[];
+  onCreateTag: (name: string, kind: TagKind) => Promise<Tag | null>;
+  onTagClick: (tagId: number) => void;
   onAddStock: () => Promise<boolean>;
   onRemoveStock: () => Promise<boolean>;
   onEdit: (details: ProductDetails) => Promise<boolean>;
@@ -15,6 +18,9 @@ interface Props {
 
 export function ProductDetail({
   product,
+  tags,
+  onCreateTag,
+  onTagClick,
   onAddStock,
   onRemoveStock,
   onEdit,
@@ -35,7 +41,13 @@ export function ProductDetail({
   if (editing) {
     return (
       <ProductForm
-        initial={{ ...product, brand: product.brand ?? "" }}
+        initial={{
+          ...product,
+          brand: product.brand ?? "",
+          tag_ids: product.tags.map((tag) => tag.id),
+        }}
+        tags={tags}
+        onCreateTag={onCreateTag}
         submitLabel="Save"
         onSubmit={async (details) => {
           if (await onEdit(details)) setEditing(false);
@@ -50,6 +62,15 @@ export function ProductDetail({
       <h2>{product.name}</h2>
       {product.brand && <p>{product.brand}</p>}
       {product.image_url && <ProductImage url={product.image_url} />}
+      {product.tags.length > 0 && (
+        <div class="chips">
+          {product.tags.map((tag) => (
+            <button type="button" key={tag.id} onClick={() => onTagClick(tag.id)}>
+              {tag.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div class="stock">
         <button

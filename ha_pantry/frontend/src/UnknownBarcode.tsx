@@ -1,17 +1,27 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { lookupBarcode } from "./api";
-import type { LookupResult, Product, ProductDetails } from "./api";
+import type { LookupResult, Product, ProductDetails, Tag, TagKind } from "./api";
 import { ProductForm } from "./ProductForm";
 
 interface Props {
   code: string;
   products: Product[];
+  tags: Tag[];
+  onCreateTag: (name: string, kind: TagKind) => Promise<Tag | null>;
   onCreate: (details: ProductDetails) => void;
   onLink: (productId: number) => void;
   onCancel: () => void;
 }
 
-export function UnknownBarcode({ code, products, onCreate, onLink, onCancel }: Props) {
+export function UnknownBarcode({
+  code,
+  products,
+  tags,
+  onCreateTag,
+  onCreate,
+  onLink,
+  onCancel,
+}: Props) {
   const [productId, setProductId] = useState("");
   // Undefined while waiting. The form is usable throughout, as the lookup is only a help.
   const [lookup, setLookup] = useState<LookupResult>();
@@ -60,6 +70,8 @@ export function UnknownBarcode({ code, products, onCreate, onLink, onCancel }: P
       </p>
       <ProductForm
         suggestion={suggestion}
+        tags={tags}
+        onCreateTag={onCreateTag}
         submitLabel="Add product"
         onSubmit={onCreate}
         onCancel={onCancel}

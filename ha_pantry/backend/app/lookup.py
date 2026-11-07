@@ -16,7 +16,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 # Open Food Facts asks for AppName/Version, ideally with contact details.
-USER_AGENT = "HA-Pantry/0.3 (Home Assistant app)"
+USER_AGENT = "HA-Pantry/0.4 (Home Assistant app)"
 TIMEOUT_SECONDS = 5
 MAX_RESPONSE_BYTES = 2_000_000
 MAX_TEXT_LENGTH = 200

@@ -3,6 +3,18 @@ export interface Barcode {
   code: string;
 }
 
+export type TagKind = "category" | "location";
+
+export interface Tag {
+  id: number;
+  name: string;
+  kind: TagKind;
+}
+
+export interface TagSummary extends Tag {
+  product_count: number;
+}
+
 export interface Product {
   id: number;
   name: string;
@@ -10,15 +22,25 @@ export interface Product {
   quantity: number;
   image_url: string | null;
   barcodes: Barcode[];
+  tags: Tag[];
 }
 
-export interface ProductDetails {
+export interface Suggestion {
   name: string;
   brand: string;
   image_url: string | null;
 }
 
-export interface LookupMatch extends ProductDetails {
+export interface ProductDetails extends Suggestion {
+  tag_ids: number[];
+}
+
+export interface ProductQuery {
+  text: string;
+  tagIds: number[];
+}
+
+export interface LookupMatch extends Suggestion {
   source: string;
   source_url: string;
 }
@@ -52,7 +74,13 @@ async function request<T>(path: string, method = "GET", body?: unknown): Promise
   return response.status === 204 ? (undefined as T) : response.json();
 }
 
-export const listProducts = () => request<Product[]>("products");
+export function listProducts({ text, tagIds }: ProductQuery = { text: "", tagIds: [] }) {
+  const params = new URLSearchParams();
+  if (text) params.set("q", text);
+  tagIds.forEach((id) => params.append("tag", String(id)));
+  const query = params.toString();
+  return request<Product[]>(query ? `products?${query}` : "products");
+}
 
 export const findByBarcode = (code: string) =>
   request<Product>(`barcodes/${encodeURIComponent(code)}`);
@@ -80,3 +108,13 @@ export const linkBarcode = (id: number, code: string) =>
 
 export const unlinkBarcode = (id: number, barcodeId: number) =>
   request<Product>(`products/${id}/barcodes/${barcodeId}`, "DELETE");
+
+export const listTags = () => request<TagSummary[]>("tags");
+
+export const createTag = (name: string, kind: TagKind) =>
+  request<Tag>("tags", "POST", { name, kind });
+
+export const renameTag = (id: number, name: string) =>
+  request<Tag>(`tags/${id}`, "PUT", { name });
+
+export const deleteTag = (id: number) => request<void>(`tags/${id}`, "DELETE");
