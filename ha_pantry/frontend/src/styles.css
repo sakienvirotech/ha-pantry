@@ -1,0 +1,52 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+}
+
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.scan-sentinel {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  border: 0;
+  padding: 0;
+}
+
+.scan-status {
+  display: block;
+  width: 100%;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 600;
+  color: #fff;
+}
+
+.scan-status.ready {
+  background: #1b7f4b;
+}
+
+.scan-status.waiting {
+  background: #b3261e;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+}
+
+th,
+td {
+  padding: 4px 8px 4px 0;
+  text-align: left;
+  overflow-wrap: anywhere;
+}

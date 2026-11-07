@@ -1,5 +1,7 @@
 import { render } from "preact";
 import { useEffect, useState } from "preact/hooks";
+import { ScanPanel } from "./ScanPanel";
+import "./styles.css";
 
 interface Product {
   id: number;
@@ -44,6 +46,7 @@ function App() {
   return (
     <main>
       <h1>Pantry</h1>
+      <ScanPanel />
       <form onSubmit={addProduct}>
         <input
           aria-label="Product name"
