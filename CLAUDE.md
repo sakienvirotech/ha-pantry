@@ -13,7 +13,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 DATA_DIR=./data ALLOWED_CLIENTS='*' .venv/bin/uvicorn app.main:create_app --factory --port 8099
 ```
 
-Frontend, from `ha_pantry/frontend/`: `npm ci`, then `npm run dev` (proxies `/api` to port 8099) or `npm run build` (type-checks and bundles).
+Frontend, from `ha_pantry/frontend/`: `npm ci`, then `npm run dev` (proxies `/api` to port 8099), `npm run build` (type-checks and bundles), or `npm test` (`npx vitest run src/scanner.test.ts -t "<name>"` for a single test).
 
 Image, from `ha_pantry/`: `docker build -t ha-pantry:test .`
 
@@ -32,13 +32,26 @@ Constraints that are easy to break:
 
 Decisions for upcoming work:
 
-- Stock changes only through explicit add and remove API actions, and can't go below zero.
+- Stock is a whole number that changes only through explicit add and remove API actions, and can't go below zero.
+- Each tag has a kind, either category or location. Shopping lists group by category tags.
 - One product can have several barcodes, so barcodes get their own table.
 - Product lookup is a chain: Open Food Facts, an optional configured fallback, then manual entry. Results only pre-fill the form, and lookup failures must never block manual entry.
 - The shopping list is a query, not stored data. Items with no price are flagged rather than counted as zero.
 - Scans arrive as keystrokes, detected as a fast burst ending in Enter. They only reach the Ingress iframe when it has focus, so prove changes here with a real scanner.
 
 Out of scope for now: companion integration, headless or camera scanning, stock history, expiry dates, multiple pantries.
+
+## Long-term goal: Grocy export and import
+
+Exchanging data with Grocy, in both directions, is planned but not scheduled for the first few releases. Don't build it yet, but don't make design choices that would rule it out. In particular, it lets people move to or from HA-Pantry without re-entering their pantry.
+
+Keep these in mind when changing the data model:
+
+- Barcodes are the natural key for matching products between the two systems, so keep them in their own table and don't assume they are unique to one source.
+- Tag kinds map to Grocy's separate concepts for categories and storage locations, so keep every tag's kind accurate.
+- Grocy models things HA-Pantry deliberately doesn't, such as quantity units and expiry dates. Decide what happens to that data on import, and don't lose it silently: report what was skipped.
+- Stock is deliberately whole numbers, but Grocy quantities may not be. An import should round or flag fractional amounts, and report them.
+- Keep import and export behind the API like everything else, and confirm Grocy's current API and data model when this work starts.
 
 ## Product intent
 
@@ -52,7 +65,7 @@ Core workflow, which should stay the centre of the design:
 
 Domain concepts:
 
-- **Tags** categorise products. They cover both product groupings and storage locations.
+- **Tags** categorise products. Each is either a product category or a storage location.
 - **Search** works by tag, barcode, or product name.
 - **Stock count** changes only by adding to or removing from the pantry.
 - **Minimum stock quantities** drive the shopping list, which can be grouped by product category.

@@ -7,3 +7,6 @@ Products can then be categorised with tags.  Tags can be used to group similar p
 
 Count of product is managed by add or remove from pantry.  You can set minimum stock quantities and get a shopping list, which can be grouped by product categories.  Products may have preferred supplier details, and prices added so that a shopping list can be made for each supplier, with an estimated total cost.
 
+## Roadmap
+
+Export to and import from Grocy is a long-term goal, so that you can move an existing pantry in either direction without re-entering it. It is not planned for the first few releases.
