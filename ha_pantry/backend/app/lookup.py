@@ -15,8 +15,9 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-# Open Food Facts asks for AppName/Version with a way to contact the developers.
-USER_AGENT = "HA-Pantry/0.5 (+https://github.com/sakienvirotech/ha-pantry)"
+# Open Food Facts asks for "AppName/Version (ContactEmail)". Its rate limits are
+# per IP address, so one project address serves every install.
+USER_AGENT = "HA-Pantry/0.5 (info@sakienvirotech.com)"
 TIMEOUT_SECONDS = 5
 MAX_RESPONSE_BYTES = 2_000_000
 MAX_TEXT_LENGTH = 200

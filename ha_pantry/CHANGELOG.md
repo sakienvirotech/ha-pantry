@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.4
+
+- Credit Open Food Facts for lookup data under the Open Database License, and name and link Open Food Facts in picture credits, as its terms ask.
+- Credit Open Food Facts for pictures HA-Pantry saved to Grocy, on the product page.
+- Link UPCitemdb's terms from its setting.
+- HA-Pantry is now licensed under the GNU General Public License v3.0.
+- Identify HA-Pantry to Open Food Facts with a contact email, in the form they ask for.
+
 ## 0.5.3
 
 - Save the Open Food Facts picture to Grocy when creating a product, unless you untick it. If the picture can't be saved, the product is still created.

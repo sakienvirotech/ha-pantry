@@ -1,5 +1,6 @@
 import { useState } from "preact/hooks";
 import type { Product } from "./api";
+import { isSavedOpenFoodFactsPicture, PictureCredit } from "./credits";
 
 interface Props {
   product: Product;
@@ -29,12 +30,19 @@ export function ProductDetail({
     <article>
       <h2>{product.name}</h2>
       {product.picture && (
-        <img
-          class="grocy-picture"
-          // The file name changes with the picture, so a new one is never cached as the old.
-          src={`api/products/${product.id}/picture?v=${encodeURIComponent(product.picture)}`}
-          alt=""
-        />
+        <figure class="product-image">
+          <img
+            class="grocy-picture"
+            // The file name changes with the picture, so a new one is never cached as the old.
+            src={`api/products/${product.id}/picture?v=${encodeURIComponent(product.picture)}`}
+            alt=""
+          />
+          {isSavedOpenFoodFactsPicture(product.picture) && (
+            <figcaption>
+              <PictureCredit />
+            </figcaption>
+          )}
+        </figure>
       )}
       <dl class="facts">
         <dt>Unit</dt>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { lookupBarcode, similarProducts } from "./api";
 import type { LookupResult, Named, NewProduct, Setup } from "./api";
+import { DataCredit } from "./credits";
 import { NewProductForm } from "./NewProductForm";
 import { ProductImage } from "./ProductImage";
 import { ProductSearch } from "./ProductSearch";
@@ -59,7 +60,10 @@ export function UnknownBarcode({ code, setup, run, onCreate, onLink, onCancel }:
         {lookup && !match && !lookup.failed && "No match online."}
         {lookup && !match && lookup.failed && "Online lookup isn't available right now."}
       </p>
-      {match?.image_url && <ProductImage url={match.image_url} />}
+      {match?.source === "Open Food Facts" && <DataCredit productUrl={match.source_url} />}
+      {match?.image_url && (
+        <ProductImage url={match.image_url} productUrl={match.source_url} />
+      )}
 
       {creating && setup ? (
         <>

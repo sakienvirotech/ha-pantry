@@ -1,5 +1,5 @@
 name: HA-Pantry
-version: "0.5.3"
+version: "0.5.4"
 slug: ha_pantry
 description: Scanner-first front end for getting your pantry into Grocy
 url: https://github.com/sakienvirotech/ha-pantry
