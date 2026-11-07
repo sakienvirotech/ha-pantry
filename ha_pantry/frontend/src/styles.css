@@ -38,15 +38,88 @@ main {
   background: #b3261e;
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 16px;
+button,
+input,
+select {
+  min-height: 44px;
+  padding: 8px 12px;
+  font: inherit;
 }
 
-th,
-td {
-  padding: 4px 8px 4px 0;
-  text-align: left;
+.stacked {
+  display: grid;
+  gap: 12px;
+}
+
+.stacked label {
+  display: grid;
+  gap: 4px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.actions select {
+  flex: 1;
+  min-width: 0;
+}
+
+.danger {
+  background: #b3261e;
+  color: #fff;
+  border: 0;
+  border-radius: 4px;
+}
+
+.stock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  margin: 24px 0;
+}
+
+.stock button {
+  width: 72px;
+  height: 72px;
+  font-size: 2rem;
+}
+
+.stock output {
+  min-width: 3ch;
+  font-size: 2.5rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.code {
   overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.plain {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plain li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+.products button {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  text-align: left;
 }

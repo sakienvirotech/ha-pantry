@@ -1,15 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { createScanDetector } from "./scanner";
 
-interface LogEntry {
-  id: number;
-  time: string;
-  result: string;
-  slowestGapMs: number;
-}
-
-const LOG_SIZE = 10;
-
 /** Removes a scan from a text box it was typed into by mistake. */
 function removeScannedText(code: string) {
   const active = document.activeElement;
@@ -19,30 +10,19 @@ function removeScannedText(code: string) {
   active.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-export function ScanPanel() {
+/** Captures scans anywhere on the page and shows whether the page can receive them. */
+export function ScanStatus({ onScan }: { onScan: (code: string) => void }) {
   const sentinel = useRef<HTMLInputElement>(null);
   const [focused, setFocused] = useState(document.hasFocus());
-  const [log, setLog] = useState<LogEntry[]>([]);
+  const latestOnScan = useRef(onScan);
+  latestOnScan.current = onScan;
 
   useEffect(() => {
-    let nextId = 0;
-    const addEntry = (result: string, slowestGapMs: number) => {
-      const entry = {
-        id: nextId++,
-        time: new Date().toLocaleTimeString(),
-        result,
-        slowestGapMs: Math.round(slowestGapMs),
-      };
-      setLog((entries) => [entry, ...entries].slice(0, LOG_SIZE));
-    };
-
     const detector = createScanDetector({
-      onScan: (code, { slowestGapMs }) => {
+      onScan: (code) => {
         removeScannedText(code);
-        addEntry(code, slowestGapMs);
+        latestOnScan.current(code);
       },
-      onReject: (length, { slowestGapMs }) =>
-        addEntry(`Too slow for a scan (${length} characters)`, slowestGapMs),
     });
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -82,7 +62,7 @@ export function ScanPanel() {
   }, []);
 
   return (
-    <section aria-label="Scanner test">
+    <>
       {/* Read-only with no input mode, so a tablet keeps its on-screen keyboard closed. */}
       <input
         ref={sentinel}
@@ -99,26 +79,6 @@ export function ScanPanel() {
       >
         {focused ? "Ready to scan" : "Tap here to scan"}
       </button>
-      {log.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Result</th>
-              <th>Slowest gap</th>
-            </tr>
-          </thead>
-          <tbody>
-            {log.map((entry) => (
-              <tr key={entry.id}>
-                <td>{entry.time}</td>
-                <td>{entry.result}</td>
-                <td>{entry.slowestGapMs} ms</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </section>
+    </>
   );
 }

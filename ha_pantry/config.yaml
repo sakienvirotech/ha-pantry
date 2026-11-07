@@ -1,5 +1,5 @@
 name: HA-Pantry
-version: "0.1.2"
+version: "0.2.0"
 slug: ha_pantry
 description: Barcode-driven pantry stock and shopping lists
 arch:

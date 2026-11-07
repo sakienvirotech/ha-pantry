@@ -6,7 +6,7 @@ export interface ScanTiming {
 export interface DetectorOptions {
   onScan: (code: string, timing: ScanTiming) => void;
   /** A code-length entry ended in Enter, but too slowly to count as a scan. */
-  onReject: (length: number, timing: ScanTiming) => void;
+  onReject?: (length: number, timing: ScanTiming) => void;
   minLength?: number;
   maxGapMs?: number;
 }
@@ -68,7 +68,7 @@ export function createScanDetector({
       return true;
     }
     if (entered.length >= minLength) {
-      onReject(entered.length, { slowestGapMs: slowestOf(entered) });
+      onReject?.(entered.length, { slowestGapMs: slowestOf(entered) });
     }
     return false;
   }
