@@ -27,7 +27,7 @@ export function createScanDetector({
   onScan,
   onReject,
   minLength = 6,
-  maxGapMs = 50,
+  maxGapMs = 100,
 }: DetectorOptions) {
   let keystrokes: Keystroke[] = [];
   let lastTime = 0;

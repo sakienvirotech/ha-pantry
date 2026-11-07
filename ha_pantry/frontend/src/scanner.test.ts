@@ -34,6 +34,13 @@ describe("createScanDetector", () => {
     expect(onReject).not.toHaveBeenCalled();
   });
 
+  it("accepts the slowest scan measured on real hardware", () => {
+    const { onScan, onReject, type } = setup();
+    expect(type("9300675024235", 76)).toBe(true);
+    expect(onScan).toHaveBeenCalledWith("9300675024235", { slowestGapMs: 76 });
+    expect(onReject).not.toHaveBeenCalled();
+  });
+
   it("leaves human typing alone but reports it as too slow", () => {
     const { onScan, onReject, type } = setup();
     expect(type("rolled oats", 120)).toBe(false);
