@@ -9,7 +9,7 @@ interface Props {
   code: string;
   setup: Setup | undefined;
   run: (action: () => Promise<void>) => Promise<boolean>;
-  onCreate: (product: Omit<NewProduct, "barcode">) => void;
+  onCreate: (product: Omit<NewProduct, "barcode">) => Promise<unknown>;
   onLink: (product: Named) => void;
   onCancel: () => void;
 }

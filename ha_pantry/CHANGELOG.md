@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.3
+
+- Save the Open Food Facts picture to Grocy when creating a product, unless you untick it. If the picture can't be saved, the product is still created.
+- Show a product's Grocy picture on its page.
+
 ## 0.5.2
 
 - Install from a prebuilt image instead of building on the device.

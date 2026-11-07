@@ -3,6 +3,7 @@
 Its behaviour copies what a real Grocy 4.7.1 did in testing, including raw
 database errors and stock with no date becoming due today.
 """
+import base64
 import json
 import re
 from datetime import date
@@ -25,6 +26,7 @@ class FakeGrocy:
             "products": {},
             "product_barcodes": {},
         }
+        self.files = {}  # picture file name -> bytes
         self.stock = {}  # product id -> list of (amount, best_before_date)
         self.settings = {"product_presets_location_id": "3"}
         self.next_id = 100
@@ -88,12 +90,21 @@ class FakeGrocy:
     def __call__(self, method, url, body, headers):
         parts = urlsplit(url)
         path = parts.path.removeprefix("/api/")
-        payload = json.loads(body) if body else None
+        is_json = headers.get("Content-Type") == "application/json"
+        payload = json.loads(body) if body and is_json else body
         self.calls.append((method, path, payload))
         if self.fail_with:
             return self.fail_with
         if headers.get("GROCY-API-KEY") != "test-key":
             return 401, b'{"error_message":"Unauthorized"}'
+        if m := re.fullmatch(r"files/productpictures/(.+)", path):
+            file_name = base64.b64decode(unquote(m[1])).decode()
+            if method == "PUT":
+                self.files[file_name] = payload
+                return 204, b""
+            if file_name not in self.files:
+                return 404, b'{"error_message":"File not found"}'
+            return 200, self.files[file_name]
         status, data = self.route(method, path, parts.query, payload)
         return status, b"" if data is None else json.dumps(data).encode()
 
@@ -114,6 +125,9 @@ class FakeGrocy:
         if m := re.fullmatch(r"objects/(\w+)/(\d+)", path):
             entity, object_id = m[1], int(m[2])
             row = self.objects[entity].get(object_id)
+            if method == "PUT":
+                row.update(payload)
+                return 204, None
             if method == "DELETE":
                 self.objects[entity].pop(object_id, None)
                 if entity == "products":

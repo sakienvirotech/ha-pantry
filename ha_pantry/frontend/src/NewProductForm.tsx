@@ -5,7 +5,7 @@ import { fallbackUnit, suggestedName, unitsMatchingSize } from "./units";
 interface Props {
   setup: Setup;
   match: LookupMatch | null;
-  onSubmit: (product: Omit<NewProduct, "barcode">) => void;
+  onSubmit: (product: Omit<NewProduct, "barcode">) => Promise<unknown>;
   onCancel: () => void;
 }
 
@@ -22,6 +22,9 @@ export function NewProductForm({ setup, match, onSubmit, onCancel }: Props) {
     setup.default_location_id ?? setup.locations[0]?.id ?? 0,
   );
   const [groupId, setGroupId] = useState<number | null>(null);
+  const [savePicture, setSavePicture] = useState(true);
+  // Saving a picture can take several seconds, so stop a second tap creating twice.
+  const [saving, setSaving] = useState(false);
 
   // A late lookup only fills what the user hasn't already chosen.
   const [unitTouched, setUnitTouched] = useState(false);
@@ -46,14 +49,18 @@ export function NewProductForm({ setup, match, onSubmit, onCancel }: Props) {
   return (
     <form
       class="stacked"
-      onSubmit={(event) => {
+      onSubmit={async (event) => {
         event.preventDefault();
-        onSubmit({
+        if (saving) return;
+        setSaving(true);
+        await onSubmit({
           name,
           unit_id: unitId,
           location_id: locationId,
           group_id: groupId,
+          image_url: savePicture ? (match?.image_url ?? null) : null,
         });
+        setSaving(false);
       }}
       onKeyDown={(event) => {
         if (event.key === "Enter" && event.target instanceof HTMLInputElement) {
@@ -135,8 +142,20 @@ export function NewProductForm({ setup, match, onSubmit, onCancel }: Props) {
           ))}
         </select>
       </label>
+      {match?.image_url && (
+        <label class="checkbox">
+          <input
+            type="checkbox"
+            checked={savePicture}
+            onChange={(event) => setSavePicture(event.currentTarget.checked)}
+          />
+          Save the picture above to Grocy
+        </label>
+      )}
       <div class="actions">
-        <button type="submit">Create in Grocy</button>
+        <button type="submit" disabled={saving}>
+          {saving ? "Creating…" : "Create in Grocy"}
+        </button>
         <button type="button" onClick={onCancel}>
           Cancel
         </button>

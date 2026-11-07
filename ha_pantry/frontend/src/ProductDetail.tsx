@@ -28,6 +28,14 @@ export function ProductDetail({
   return (
     <article>
       <h2>{product.name}</h2>
+      {product.picture && (
+        <img
+          class="grocy-picture"
+          // The file name changes with the picture, so a new one is never cached as the old.
+          src={`api/products/${product.id}/picture?v=${encodeURIComponent(product.picture)}`}
+          alt=""
+        />
+      )}
       <dl class="facts">
         <dt>Unit</dt>
         <dd>{product.unit}</dd>

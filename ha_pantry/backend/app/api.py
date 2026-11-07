@@ -1,18 +1,25 @@
+import logging
 import re
+import secrets
 from datetime import date
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from .grocy import Grocy, GrocyError, query
 from .lookup import ProductLookup
+from .pictures import MEDIA_TYPES, PictureError, download_picture, picture_type
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api")
 
 # Grocy's "never overdue" date. Leaving the date out would make stock due today.
 NEVER_DUE = date(2999, 12, 31)
 SEARCH_LIMIT = 50
+PICTURE_WIDTH = 600
+PICTURE_FAILED = "The product was created, but its picture couldn't be saved to Grocy."
 SIMILAR_LIMIT = 5
 # Share of words in common, as a Dice coefficient. 0.5 keeps an exact name with
 # an extra word or two, and drops products that only share a word like "syrup".
@@ -42,6 +49,8 @@ class ProductCreate(WriteModel):
     location_id: int
     group_id: int | None = None
     barcode: BarcodeValue | None = None
+    # An Open Food Facts picture to save to Grocy as the product's picture.
+    image_url: str | None = None
 
 
 class BarcodeCreate(WriteModel):
@@ -76,6 +85,10 @@ class ProductView(BaseModel):
     location: str | None
     group: str | None
     barcodes: list[BarcodeRead]
+    # Grocy's file name, which changes whenever the picture does.
+    picture: str | None = None
+    # Set when the main change worked but a lesser part of it didn't.
+    warning: str | None = None
 
 
 class Setup(BaseModel):
@@ -139,6 +152,7 @@ def product_view(grocy: Grocy, product_id: int) -> ProductView:
         unit=(details.get("quantity_unit_stock") or {}).get("name", ""),
         location=(details.get("location") or {}).get("name"),
         group=group,
+        picture=product.get("picture_file_name") or None,
         barcodes=[
             BarcodeRead(id=int(row["id"]), code=row["barcode"])
             for row in details.get("product_barcodes") or []
@@ -211,7 +225,7 @@ def similar_products(grocy: GrocyDep, name: str):
 
 
 @router.post("/products", response_model=ProductView, status_code=201)
-def create_product(body: ProductCreate, grocy: GrocyDep):
+def create_product(body: ProductCreate, grocy: GrocyDep, request: Request):
     created = grocy.post(
         "objects/products",
         {
@@ -235,7 +249,41 @@ def create_product(body: ProductCreate, grocy: GrocyDep):
             # Don't leave a product behind that the scan can never find.
             grocy.delete(f"objects/products/{product_id}")
             raise
-    return product_view(grocy, product_id)
+    warning = None
+    if body.image_url:
+        try:
+            save_picture(grocy, request, product_id, body.image_url)
+        except (GrocyError, PictureError) as error:
+            # A missing picture isn't worth losing the product over.
+            logger.warning("Couldn't save the picture for product %s: %s", product_id, error)
+            warning = PICTURE_FAILED
+    view = product_view(grocy, product_id)
+    view.warning = warning
+    return view
+
+
+def save_picture(grocy: Grocy, request: Request, product_id: int, url: str) -> None:
+    data, extension = download_picture(url, request.app.state.fetch_picture)
+    file_name = f"ha-pantry-{product_id}-{secrets.token_hex(4)}.{extension}"
+    grocy.upload_picture(file_name, data)
+    grocy.put(f"objects/products/{product_id}", {"picture_file_name": file_name})
+
+
+@router.get("/products/{product_id}/picture")
+def get_picture(product_id: int, grocy: GrocyDep):
+    file_name = grocy.get(f"objects/products/{product_id}").get("picture_file_name")
+    if not file_name:
+        raise GrocyError(404, "This product has no picture.")
+    data = grocy.download_picture(file_name, PICTURE_WIDTH)
+    extension = picture_type(data)
+    if extension is None:
+        raise GrocyError(502, "Grocy's picture for this product isn't a picture.")
+    # The page asks for the picture with its file name, which changes with it.
+    return Response(
+        data,
+        media_type=MEDIA_TYPES[extension],
+        headers={"Cache-Control": "private, max-age=86400"},
+    )
 
 
 @router.get("/products/{product_id}", response_model=ProductView)

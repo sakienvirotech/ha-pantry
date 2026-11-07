@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from .api import router
 from .grocy import Grocy, GrocyError
 from .lookup import ProductLookup
+from .pictures import fetch_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,7 @@ def create_app(
     app.state.lookup = ProductLookup(
         use_upcitemdb=bool(options.get("upcitemdb_fallback"))
     )
+    app.state.fetch_picture = fetch_bytes
     app.include_router(router)
     if static_dir.is_dir():
         app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")

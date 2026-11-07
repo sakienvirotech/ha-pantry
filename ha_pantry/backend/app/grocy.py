@@ -3,6 +3,7 @@
 Grocy's errors are turned into messages a person can act on, because some
 of them are raw database errors.
 """
+import base64
 import http.client
 import json
 import logging
@@ -89,15 +90,21 @@ class Grocy:
         self.api_key = api_key
         self.transport = transport
 
-    def request(self, method: str, path: str, body: dict | None = None) -> Any:
+    def send(
+        self, method: str, path: str, payload: bytes | None, content_type: str | None
+    ) -> tuple[int, bytes]:
         if not self.url or not self.api_key:
             raise GrocyError(503, NOT_SET_UP)
-        headers = {"GROCY-API-KEY": self.api_key, "Accept": "application/json"}
-        payload = None
-        if body is not None:
-            payload = json.dumps(body).encode()
-            headers["Content-Type"] = "application/json"
-        status, raw = self.transport(method, f"{self.url}/api/{path}", payload, headers)
+        headers = {"GROCY-API-KEY": self.api_key}
+        if content_type:
+            headers["Content-Type"] = content_type
+        return self.transport(method, f"{self.url}/api/{path}", payload, headers)
+
+    def request(self, method: str, path: str, body: dict | None = None) -> Any:
+        payload = None if body is None else json.dumps(body).encode()
+        status, raw = self.send(
+            method, path, payload, None if body is None else "application/json"
+        )
         try:
             data = json.loads(raw) if raw.strip() else None
         except ValueError:
@@ -113,5 +120,35 @@ class Grocy:
     def post(self, path: str, body: dict) -> Any:
         return self.request("POST", path, body)
 
+    def put(self, path: str, body: dict) -> Any:
+        return self.request("PUT", path, body)
+
     def delete(self, path: str) -> None:
         self.request("DELETE", path)
+
+    def upload_picture(self, file_name: str, data: bytes) -> None:
+        status, raw = self.send(
+            "PUT", picture_path(file_name), data, "application/octet-stream"
+        )
+        if status >= 400:
+            raise error_for(status, parse_json(raw))
+
+    def download_picture(self, file_name: str, width: int) -> bytes:
+        path = f"{picture_path(file_name)}?force_serve_as=picture&best_fit_width={width}"
+        status, raw = self.send("GET", path, None, None)
+        if status >= 400:
+            raise error_for(status, parse_json(raw))
+        return raw
+
+
+def picture_path(file_name: str) -> str:
+    """Grocy wants file names base64 encoded in the URL."""
+    encoded = base64.b64encode(file_name.encode()).decode()
+    return f"files/productpictures/{quote(encoded, safe='')}"
+
+
+def parse_json(raw: bytes) -> Any:
+    try:
+        return json.loads(raw)
+    except ValueError:
+        return None

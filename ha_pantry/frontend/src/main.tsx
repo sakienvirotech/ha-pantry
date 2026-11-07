@@ -61,7 +61,11 @@ function App() {
     run(async () => setView({ kind: "product", product: await api.getProduct(id) }));
 
   const update = (change: () => Promise<Product>) =>
-    run(async () => setView({ kind: "product", product: await change() }));
+    run(async () => {
+      const product = await change();
+      setView({ kind: "product", product });
+      if (product.warning) setError(product.warning);
+    });
 
   function renderView() {
     switch (view.kind) {

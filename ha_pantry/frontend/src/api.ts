@@ -17,6 +17,10 @@ export interface Product {
   location: string | null;
   group: string | null;
   barcodes: Barcode[];
+  /** Grocy's picture file name, or null when the product has no picture. */
+  picture: string | null;
+  /** Set when the main change worked but a lesser part of it didn't. */
+  warning?: string | null;
 }
 
 export interface Setup {
@@ -38,6 +42,7 @@ export interface NewProduct {
   location_id: number;
   group_id: number | null;
   barcode?: string;
+  image_url?: string | null;
 }
 
 export interface LookupMatch {

@@ -94,6 +94,8 @@ def test_scan_finds_a_product_by_any_barcode(client, grocy):
             {"id": body["barcodes"][0]["id"], "code": "111111"},
             {"id": body["barcodes"][1]["id"], "code": "222222"},
         ],
+        "picture": None,
+        "warning": None,
     }
 
 
@@ -287,3 +289,99 @@ def test_similar_returns_at_most_five(client, grocy):
     for n in range(8):
         grocy.add_product(f"Baked beans {n}")
     assert len(similar(client, "Baked beans")) == 5
+
+
+JPEG = b"\xff\xd8\xff\xe0" + b"picture" * 10
+OFF_PICTURE = "https://images.openfoodfacts.org/images/products/1/front.jpg"
+
+
+def create_with_picture(client, url=OFF_PICTURE):
+    return client.post(
+        "/api/products",
+        json={"name": "Nutella", "unit_id": 2, "location_id": 3, "image_url": url},
+    )
+
+
+def test_create_saves_the_picture_to_grocy(client, grocy):
+    fetched = []
+    client.app.state.fetch_picture = lambda url: fetched.append(url) or JPEG
+
+    body = create_with_picture(client).json()
+    assert fetched == [OFF_PICTURE]
+    assert body["warning"] is None
+    assert body["picture"].startswith(f"ha-pantry-{body['id']}-")
+    assert body["picture"].endswith(".jpg")
+    assert grocy.files[body["picture"]] == JPEG
+
+    picture = client.get(f"/api/products/{body['id']}/picture")
+    assert picture.status_code == 200
+    assert picture.headers["content-type"] == "image/jpeg"
+    assert picture.content == JPEG
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://images.openfoodfacts.org/a.jpg",
+        "https://example.com/a.jpg",
+        "https://images.openfoodfacts.org.evil.example/a.jpg",
+        "https://images.openfoodfacts.org@192.168.0.1/a.jpg",
+        "https://images.openfoodfacts.org:8443/a.jpg",
+        "https://192.168.0.41/a.jpg",
+    ],
+)
+def test_picture_from_elsewhere_is_never_fetched(client, grocy, url):
+    fetched = []
+    client.app.state.fetch_picture = lambda u: fetched.append(u) or JPEG
+    response = create_with_picture(client, url)
+    assert response.status_code == 201
+    assert fetched == []
+    assert response.json()["warning"] is not None
+    assert response.json()["picture"] is None
+
+
+@pytest.mark.parametrize(
+    "download",
+    [b"<html>not found</html>", JPEG + b"x" * 5_000_000],
+)
+def test_unusable_download_still_creates_the_product(client, grocy, download):
+    client.app.state.fetch_picture = lambda url: download
+    response = create_with_picture(client)
+    assert response.status_code == 201
+    assert response.json()["warning"] == "The product was created, but its picture couldn't be saved to Grocy."
+    assert grocy.files == {}
+
+
+def test_failed_download_still_creates_the_product(client, grocy):
+    from app.pictures import PictureError
+
+    def fail(url):
+        raise PictureError("timed out")
+
+    client.app.state.fetch_picture = fail
+    response = create_with_picture(client)
+    assert response.status_code == 201
+    assert response.json()["warning"] is not None
+    assert [p["name"] for p in grocy.objects["products"].values()] == ["Nutella"]
+
+
+def test_create_without_picture_has_no_warning(client, grocy):
+    response = client.post(
+        "/api/products", json={"name": "Oats", "unit_id": 2, "location_id": 3}
+    )
+    assert response.json()["warning"] is None
+    assert response.json()["picture"] is None
+
+
+def test_product_without_picture(client, grocy):
+    product_id = grocy.add_product("Oats")
+    assert client.get(f"/api/products/{product_id}/picture").status_code == 404
+
+
+def test_existing_grocy_picture_is_served(client, grocy):
+    product_id = grocy.add_product("Oats")
+    grocy.objects["products"][product_id]["picture_file_name"] = "abc_oats.png"
+    grocy.files["abc_oats.png"] = b"\x89PNG\r\n\x1a\n" + b"x" * 20
+    assert client.get(f"/api/products/{product_id}").json()["picture"] == "abc_oats.png"
+    response = client.get(f"/api/products/{product_id}/picture")
+    assert response.headers["content-type"] == "image/png"

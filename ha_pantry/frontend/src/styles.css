@@ -209,3 +209,22 @@ fieldset {
   border: 2px solid #b3261e;
   border-radius: 8px;
 }
+
+.grocy-picture {
+  display: block;
+  max-width: 100%;
+  max-height: 200px;
+  margin: 8px 0;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox input {
+  min-height: 0;
+  width: 24px;
+  height: 24px;
+}
