@@ -13,6 +13,27 @@ Everything is stored in Grocy, so recipes, expiry dates, shopping lists and deta
 2. In Grocy, create an API key under Manage API keys.
 3. In Home Assistant, add `https://github.com/sakienvirotech/ha-pantry` as an App repository and install HA-Pantry. Enter the API key in its configuration, and change the Grocy URL if your Grocy isn't the Community App.
 
+## Tested on
+
+HA-Pantry 0.5.5 was tested in November 2026 on Home Assistant OS on a Raspberry Pi 4 (aarch64), with the Grocy Community App 0.26.5. The amd64 image is built and published, but hasn't been tried on a device yet.
+
+| Area | Result |
+|---|---|
+| Scanning with a USB scanner on a laptop | Passed. Every code read correctly, including rapid scans |
+| Scanning with a Bluetooth scanner on an Android tablet | Passed. The on-screen keyboard stays closed |
+| Opening a known product and adding or removing stock | Passed |
+| Looking up an unknown barcode, attaching it to an existing product, and creating a new product | Passed |
+| Saving Open Food Facts pictures to Grocy | Passed |
+| Backing up and restoring HA-Pantry on its own | Passed. Its settings came back unchanged |
+| A non-admin Home Assistant user using the panel | Passed |
+| Refusing visitors who aren't logged in to Home Assistant | Passed. Direct requests get 403 Forbidden, even with forged forwarding headers, and the panel's address shows Home Assistant's login page |
+
+Things to know:
+
+- HA-Pantry recognises a scan as keystrokes arriving less than 100 ms apart. The Bluetooth scanner tested had gaps of up to 66 ms. A slower scanner's codes would be treated as typing.
+- If the tablet's on-screen keyboard is open, a scan types its digits into the text box that has focus.
+- HA-Pantry keeps no data of its own, so its backup holds only its settings. Your pantry is in Grocy, so include Grocy in your backups.
+
 ## Data sources
 
 Product lookups use [Open Food Facts](https://world.openfoodfacts.org). Its data is available under the [Open Database License](https://opendatacommons.org/licenses/odbl/1.0/), and its product pictures under [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/). HA-Pantry credits Open Food Facts wherever it shows that data or a picture. Open Food Facts is provided as is, and its accuracy isn't guaranteed: check details before saving them, and don't rely on them for allergies or medical needs. The licence covers only the photo itself, and packaging can show trademarks and designs owned by others.
