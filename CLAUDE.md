@@ -19,6 +19,8 @@ Frontend, from `ha_pantry/frontend/`: `npm ci`, then `npm run dev` (proxies `/ap
 
 Image, from `ha_pantry/`: `docker build -t ha-pantry:test .`
 
+Releases: `.github/workflows/builder.yaml` tests every push and pull request. On `main` it publishes `ghcr.io/sakienvirotech/ha-pantry` for the `version` in `config.yaml`, skipping versions already published, so bump `version` (and `CHANGELOG.md`) for every release and never reuse one. Because `config.yaml` sets `image`, the Supervisor pulls that image instead of building, and installs fail until the workflow has finished. Pushing workflow changes needs a GitHub token with the `workflow` scope.
+
 ## Architecture
 
 HA-Pantry ships as a single Home Assistant App (formerly "add-on") for HAOS/Supervised, with its UI in the HA sidebar through Ingress. This repo is also the App repository (`repository.yaml`). Grocy stores all pantry data, and HA-Pantry keeps no database of its own. `ha_pantry/backend` is FastAPI. It talks to Grocy's REST API (`app/grocy.py`) with an API key from the App options, so the key never reaches the browser, and it serves the `ha_pantry/frontend` Preact SPA. Keep all behaviour behind `/api`.

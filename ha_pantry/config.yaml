@@ -1,7 +1,11 @@
 name: HA-Pantry
-version: "0.5.1"
+version: "0.5.2"
 slug: ha_pantry
 description: Scanner-first front end for getting your pantry into Grocy
+url: https://github.com/sakienvirotech/ha-pantry
+# Prebuilt by .github/workflows/builder.yaml. Without this line the
+# Supervisor builds the App on the device, as it did before 0.5.2.
+image: ghcr.io/sakienvirotech/ha-pantry
 arch:
   - aarch64
   - amd64

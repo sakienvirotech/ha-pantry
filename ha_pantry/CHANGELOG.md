@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.2
+
+- Install from a prebuilt image instead of building on the device.
+- Identify HA-Pantry to Open Food Facts with the project's address.
+
 ## 0.5.1
 
 - For an unknown barcode, list Grocy products whose names match the online result, ignoring case and punctuation, so the barcode can be attached with one tap.
