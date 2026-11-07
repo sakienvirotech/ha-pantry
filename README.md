@@ -1,7 +1,7 @@
 # ha-pantry
 
 HA-Pantry is a Home Assitant app that is designed to be an easy to use, barcode driven stock/shopping management for the home pantry.
-It is intentionally more limited in scope that, for instance, Grocy, and is designed to have a simple workflow that doesn't require huge amounts of setup to get going.  Just use a simple bluetooth or USB barcode scanner, scan the product.  If the product is already in the pantry it opens the details and allows you to add or remove stock, or otherwise edit the record.  If the product doesn't exist yet it does a web search to identify the product and fill in as much detail as possible so that you can easily add it to your pantry.
+It is intentionally more limited in scope that, for instance, Grocy, and is designed to have a simple workflow that doesn't require huge amounts of setup to get going.  Just use a simple bluetooth or USB barcode scanner, scan the product.  If the product is already in the pantry it opens the details and allows you to add or remove stock, or otherwise edit the record.  If the product doesn't exist yet it looks the barcode up in online product databases, starting with Open Food Facts, to identify the product and fill in as much detail as possible so that you can easily add it to your pantry. If nothing is found you can enter the details by hand.
 
 Products can then be categorised with tags.  Tags can be used to group similar products together, or to provide storage locations.  You can search by tag, barcode, or product name.
 

@@ -2,9 +2,43 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status
+## Commands
 
-Pre-implementation: the repository contains only `README.md`. There is no source code, build tooling, or test setup yet, and no language or framework has been chosen. Add the build, lint, and test commands and the architecture overview here once they exist.
+Backend, from `ha_pantry/backend/`:
+
+```sh
+python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+.venv/bin/pytest                                 # all tests
+.venv/bin/pytest tests/test_app.py::test_health  # single test
+DATA_DIR=./data ALLOWED_CLIENTS='*' .venv/bin/uvicorn app.main:create_app --factory --port 8099
+```
+
+Frontend, from `ha_pantry/frontend/`: `npm ci`, then `npm run dev` (proxies `/api` to port 8099) or `npm run build` (type-checks and bundles).
+
+Image, from `ha_pantry/`: `docker build -t ha-pantry:test .`
+
+## Architecture
+
+HA-Pantry ships as a single Home Assistant App (formerly "add-on") for HAOS/Supervised, with its UI in the HA sidebar through Ingress. This repo is also the App repository (`repository.yaml`). `ha_pantry/backend` is FastAPI, SQLAlchemy and Alembic on SQLite at `/data/pantry.db`, and it serves the `ha_pantry/frontend` Preact SPA. The SPA uses the same JSON API a future companion integration would use, so keep all behaviour behind `/api`.
+
+Constraints that are easy to break:
+
+- `backend/` and `frontend/` must stay inside `ha_pantry/`: the Supervisor builds on the device with that folder as the Docker context.
+- All frontend URLs must be relative (`api/products`, not `/api/products`), because Ingress serves the app under a dynamic path.
+- HA handles login at the Ingress proxy, so the app rejects any client but `172.30.32.2` (`ALLOWED_CLIENTS` overrides this; `*` is for local development only). Uvicorn runs with `--no-proxy-headers` so forwarded headers can't spoof the client address.
+- The image uses the HA base image's s6 `/init`, which clears the environment for `CMD` unless `S6_KEEP_ENV=1`, set in the Dockerfile. `init: false` in `config.yaml` is required with these images.
+- Migrations run on startup. Every schema change needs an Alembic revision in `backend/migrations/versions/`.
+- Follow the current HA contributor docs at contributors.home-assistant.io/apps/: `build.yaml` is deprecated and `BUILD_FROM` is no longer passed.
+
+Decisions for upcoming work:
+
+- Stock changes only through explicit add and remove API actions, and can't go below zero.
+- One product can have several barcodes, so barcodes get their own table.
+- Product lookup is a chain: Open Food Facts, an optional configured fallback, then manual entry. Results only pre-fill the form, and lookup failures must never block manual entry.
+- The shopping list is a query, not stored data. Items with no price are flagged rather than counted as zero.
+- Scans arrive as keystrokes, detected as a fast burst ending in Enter. They only reach the Ingress iframe when it has focus, so prove changes here with a real scanner.
+
+Out of scope for now: companion integration, headless or camera scanning, stock history, expiry dates, multiple pantries.
 
 ## Product intent
 
