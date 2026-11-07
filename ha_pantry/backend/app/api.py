@@ -7,6 +7,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from .lookup import ProductLookup
 from .models import Barcode, Product
 
 router = APIRouter(prefix="/api")
@@ -24,6 +25,7 @@ ProductName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
 ]
 Brand = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
+ImageUrl = Annotated[str, StringConstraints(max_length=500, pattern=r"^https://")]
 BarcodeValue = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)
 ]
@@ -37,6 +39,7 @@ class WriteModel(BaseModel):
 class ProductUpdate(WriteModel):
     name: ProductName
     brand: Brand | None = None
+    image_url: ImageUrl | None = None
 
 
 class ProductCreate(ProductUpdate):
@@ -65,7 +68,24 @@ class ProductRead(BaseModel):
     name: str
     brand: str | None
     quantity: int
+    image_url: str | None
     barcodes: list[BarcodeRead]
+
+
+class LookupMatch(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str
+    brand: str | None
+    image_url: str | None
+    source: str
+    source_url: str
+
+
+class LookupResult(BaseModel):
+    match: LookupMatch | None
+    # A source couldn't be asked, so no match doesn't prove the product is unlisted.
+    failed: bool
 
 
 def get_product_or_404(session: Session, product_id: int) -> Product:
@@ -112,6 +132,7 @@ def create_product(body: ProductCreate, session: SessionDep):
     product = Product(
         name=body.name,
         brand=body.brand or None,
+        image_url=body.image_url,
         barcodes=[Barcode(code=code) for code in dict.fromkeys(body.barcodes)],
     )
     session.add(product)
@@ -129,6 +150,7 @@ def update_product(product_id: int, body: ProductUpdate, session: SessionDep):
     product = get_product_or_404(session, product_id)
     product.name = body.name
     product.brand = body.brand or None
+    product.image_url = body.image_url
     session.commit()
     return product
 
@@ -174,6 +196,16 @@ def remove_barcode(product_id: int, barcode_id: int, session: SessionDep):
     product.barcodes.remove(barcode)
     session.commit()
     return product
+
+
+# Plain def on purpose: FastAPI runs it in a thread, as lookups wait on the network.
+@router.get("/lookup/{code:path}", response_model=LookupResult)
+def lookup_barcode(code: str, request: Request):
+    lookup: ProductLookup = request.app.state.lookup
+    match, failed = lookup.find(code)
+    return LookupResult(
+        match=LookupMatch.model_validate(match) if match else None, failed=failed
+    )
 
 
 # A :path converter, because Code 128 barcodes can contain slashes.

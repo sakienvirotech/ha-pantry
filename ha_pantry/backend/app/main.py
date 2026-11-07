@@ -1,3 +1,5 @@
+import json
+import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -9,9 +11,23 @@ from fastapi.staticfiles import StaticFiles
 
 from .api import router
 from .db import create_db_engine, run_migrations
+from .lookup import ProductLookup
+
+logger = logging.getLogger(__name__)
 
 INGRESS_PROXY = "172.30.32.2"
 DEFAULT_STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
+
+
+def load_options(data_dir: Path) -> dict:
+    """Reads the App options, which the Supervisor writes to the data folder."""
+    try:
+        return json.loads((data_dir / "options.json").read_text())
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError):
+        logger.exception("Ignoring unreadable App options")
+        return {}
 
 
 def create_app(
@@ -41,6 +57,10 @@ def create_app(
             return PlainTextResponse("Forbidden", status_code=403)
         return await call_next(request)
 
+    options = load_options(data_dir)
+    app.state.lookup = ProductLookup(
+        use_upcitemdb=bool(options.get("upcitemdb_fallback"))
+    )
     app.include_router(router)
     if static_dir.is_dir():
         app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")

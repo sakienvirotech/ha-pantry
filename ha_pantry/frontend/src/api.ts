@@ -8,12 +8,24 @@ export interface Product {
   name: string;
   brand: string | null;
   quantity: number;
+  image_url: string | null;
   barcodes: Barcode[];
 }
 
 export interface ProductDetails {
   name: string;
   brand: string;
+  image_url: string | null;
+}
+
+export interface LookupMatch extends ProductDetails {
+  source: string;
+  source_url: string;
+}
+
+export interface LookupResult {
+  match: LookupMatch | null;
+  failed: boolean;
 }
 
 export class ApiError extends Error {
@@ -44,6 +56,9 @@ export const listProducts = () => request<Product[]>("products");
 
 export const findByBarcode = (code: string) =>
   request<Product>(`barcodes/${encodeURIComponent(code)}`);
+
+export const lookupBarcode = (code: string) =>
+  request<LookupResult>(`lookup/${encodeURIComponent(code)}`);
 
 export const createProduct = (details: ProductDetails, barcodes: string[]) =>
   request<Product>("products", "POST", { ...details, barcodes });

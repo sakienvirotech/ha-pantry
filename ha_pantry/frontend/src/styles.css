@@ -123,3 +123,18 @@ select {
   width: 100%;
   text-align: left;
 }
+
+.product-image {
+  margin: 8px 0;
+}
+
+.product-image img {
+  display: block;
+  max-width: 100%;
+  max-height: 200px;
+}
+
+.product-image figcaption {
+  margin-top: 4px;
+  font-size: 0.8rem;
+}

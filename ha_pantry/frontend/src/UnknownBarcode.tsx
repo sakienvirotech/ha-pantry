@@ -1,5 +1,6 @@
-import { useState } from "preact/hooks";
-import type { Product, ProductDetails } from "./api";
+import { useEffect, useMemo, useState } from "preact/hooks";
+import { lookupBarcode } from "./api";
+import type { LookupResult, Product, ProductDetails } from "./api";
 import { ProductForm } from "./ProductForm";
 
 interface Props {
@@ -12,6 +13,27 @@ interface Props {
 
 export function UnknownBarcode({ code, products, onCreate, onLink, onCancel }: Props) {
   const [productId, setProductId] = useState("");
+  // Undefined while waiting. The form is usable throughout, as the lookup is only a help.
+  const [lookup, setLookup] = useState<LookupResult>();
+
+  useEffect(() => {
+    let current = true;
+    lookupBarcode(code)
+      .catch((): LookupResult => ({ match: null, failed: true }))
+      .then((result) => {
+        if (current) setLookup(result);
+      });
+    return () => {
+      current = false;
+    };
+  }, [code]);
+
+  const match = lookup?.match;
+  // Memoised so a re-render can't refill a field the user has just cleared.
+  const suggestion = useMemo(
+    () => (match ? { ...match, brand: match.brand ?? "" } : null),
+    [match],
+  );
 
   return (
     <article>
@@ -19,7 +41,29 @@ export function UnknownBarcode({ code, products, onCreate, onLink, onCancel }: P
       <p class="code">{code}</p>
 
       <h3>Add a product</h3>
-      <ProductForm submitLabel="Add product" onSubmit={onCreate} onCancel={onCancel} />
+      <p role="status">
+        {!lookup && "Looking this up online…"}
+        {match && (
+          <>
+            Found on{" "}
+            <a href={match.source_url} target="_blank" rel="noreferrer">
+              {match.source}
+            </a>
+            . Check the details before saving.
+          </>
+        )}
+        {lookup && !match && !lookup.failed && "No match online. Enter the details below."}
+        {lookup &&
+          !match &&
+          lookup.failed &&
+          "Online lookup isn't available right now. Enter the details below."}
+      </p>
+      <ProductForm
+        suggestion={suggestion}
+        submitLabel="Add product"
+        onSubmit={onCreate}
+        onCancel={onCancel}
+      />
 
       {products.length > 0 && (
         <>

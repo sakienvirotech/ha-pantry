@@ -1,1 +1,6 @@
-configuration: {}
+configuration:
+  upcitemdb_fallback:
+    name: Use UPCitemdb as a fallback
+    description: >-
+      When Open Food Facts has no match, send the barcode to UPCitemdb. It has
+      more non-food products, and its free service allows 100 lookups a day.

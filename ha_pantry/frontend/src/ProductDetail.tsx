@@ -1,6 +1,7 @@
 import { useState } from "preact/hooks";
 import type { Product, ProductDetails } from "./api";
 import { ProductForm } from "./ProductForm";
+import { ProductImage } from "./ProductImage";
 
 interface Props {
   product: Product;
@@ -34,7 +35,7 @@ export function ProductDetail({
   if (editing) {
     return (
       <ProductForm
-        initial={{ name: product.name, brand: product.brand ?? "" }}
+        initial={{ ...product, brand: product.brand ?? "" }}
         submitLabel="Save"
         onSubmit={async (details) => {
           if (await onEdit(details)) setEditing(false);
@@ -48,6 +49,7 @@ export function ProductDetail({
     <article>
       <h2>{product.name}</h2>
       {product.brand && <p>{product.brand}</p>}
+      {product.image_url && <ProductImage url={product.image_url} />}
 
       <div class="stock">
         <button
