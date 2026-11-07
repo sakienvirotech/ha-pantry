@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1
+
+- For an unknown barcode, list Grocy products whose names match the online result, ignoring case and punctuation, so the barcode can be attached with one tap.
+
 ## 0.5.0
 
 HA-Pantry is now a front end for Grocy, which stores all data. Products, barcodes, tags and stock from earlier versions are not moved to Grocy.

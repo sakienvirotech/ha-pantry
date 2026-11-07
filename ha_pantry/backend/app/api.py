@@ -1,3 +1,4 @@
+import re
 from datetime import date
 from typing import Annotated, Any
 
@@ -12,6 +13,10 @@ router = APIRouter(prefix="/api")
 # Grocy's "never overdue" date. Leaving the date out would make stock due today.
 NEVER_DUE = date(2999, 12, 31)
 SEARCH_LIMIT = 50
+SIMILAR_LIMIT = 5
+# Share of words in common, as a Dice coefficient. 0.5 keeps an exact name with
+# an extra word or two, and drops products that only share a word like "syrup".
+SIMILAR_THRESHOLD = 0.5
 
 
 def get_grocy(request: Request) -> Grocy:
@@ -108,6 +113,19 @@ def named(rows: list[dict[str, Any]]) -> list[Named]:
     return sorted(items, key=lambda item: item.name.casefold())
 
 
+def words(text: str) -> set[str]:
+    """Lower-case words, ignoring punctuation, so "Syrup - Woolworths" matches "syrup, Woolworths"."""
+    return set(re.findall(r"\w+", text.casefold()))
+
+
+def similarity(a: set[str], b: set[str]) -> float:
+    return 2 * len(a & b) / (len(a) + len(b)) if a and b else 0.0
+
+
+def active_products(grocy: Grocy) -> list[Named]:
+    return named([p for p in grocy.get("objects/products") if p.get("active", 1)])
+
+
 def product_view(grocy: Grocy, product_id: int) -> ProductView:
     details = grocy.get(f"stock/products/{product_id}")
     product = details["product"]
@@ -172,10 +190,24 @@ def search_products(grocy: GrocyDep, q: str = ""):
     terms = q.casefold().split()
     products = [
         product
-        for product in named([p for p in grocy.get("objects/products") if p.get("active", 1)])
+        for product in active_products(grocy)
         if all(term in product.name.casefold() for term in terms)
     ]
     return products[:SEARCH_LIMIT]
+
+
+# Not under /products, where it would clash with /products/{product_id}.
+@router.get("/similar-products", response_model=list[Named])
+def similar_products(grocy: GrocyDep, name: str):
+    """Products whose names share most of their words with a lookup result."""
+    wanted = words(name)
+    scored = [
+        (similarity(wanted, words(product.name)), product)
+        for product in active_products(grocy)
+    ]
+    matches = [(score, p) for score, p in scored if score >= SIMILAR_THRESHOLD]
+    matches.sort(key=lambda item: -item[0])
+    return [product for _, product in matches[:SIMILAR_LIMIT]]
 
 
 @router.post("/products", response_model=ProductView, status_code=201)

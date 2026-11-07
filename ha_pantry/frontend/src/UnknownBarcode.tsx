@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { lookupBarcode } from "./api";
+import { lookupBarcode, similarProducts } from "./api";
 import type { LookupResult, Named, NewProduct, Setup } from "./api";
 import { NewProductForm } from "./NewProductForm";
 import { ProductImage } from "./ProductImage";
@@ -18,13 +18,20 @@ export function UnknownBarcode({ code, setup, run, onCreate, onLink, onCancel }:
   // Undefined while waiting. Both paths work throughout, as the lookup is only a help.
   const [lookup, setLookup] = useState<LookupResult>();
   const [creating, setCreating] = useState(false);
+  const [similar, setSimilar] = useState<Named[]>([]);
 
   useEffect(() => {
     let current = true;
     lookupBarcode(code)
       .catch((): LookupResult => ({ match: null, failed: true }))
-      .then((result) => {
-        if (current) setLookup(result);
+      .then(async (result) => {
+        if (!current) return;
+        setLookup(result);
+        if (!result.match) return;
+        const { name, brand } = result.match;
+        // Only a help, so a failure just leaves the search box.
+        const found = await similarProducts(`${name} ${brand ?? ""}`).catch(() => []);
+        if (current) setSimilar(found);
       });
     return () => {
       current = false;
@@ -67,6 +74,21 @@ export function UnknownBarcode({ code, setup, run, onCreate, onLink, onCancel }:
       ) : (
         <>
           <h3>Add this barcode to a product already in Grocy</h3>
+          {similar.length > 0 && (
+            <>
+              <p>Possible matches:</p>
+              <ul class="plain products">
+                {similar.map((product) => (
+                  <li key={product.id}>
+                    <button type="button" onClick={() => onLink(product)}>
+                      <span>{product.name}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <p>Or search:</p>
+            </>
+          )}
           <ProductSearch label="Search Grocy products" run={run} onPick={onLink} />
           <h3>Or create a new product</h3>
           <div class="actions">

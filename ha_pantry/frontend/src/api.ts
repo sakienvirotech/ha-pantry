@@ -85,6 +85,9 @@ export const getSetup = () => request<Setup>("setup");
 export const searchProducts = (text: string) =>
   request<Named[]>(`products?q=${encodeURIComponent(text)}`);
 
+export const similarProducts = (name: string) =>
+  request<Named[]>(`similar-products?name=${encodeURIComponent(name)}`);
+
 export const getProduct = (id: number) => request<Product>(`products/${id}`);
 
 export const findByBarcode = (code: string) =>

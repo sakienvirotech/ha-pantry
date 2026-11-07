@@ -249,3 +249,41 @@ def test_unknown_raw_database_error_is_hidden():
         Grocy("http://grocy", "key", transport=transport).get("objects/products")
     assert raised.value.message == "Grocy rejected the change."
     assert raised.value.status == 400
+
+
+def similar(client, name):
+    response = client.get("/api/similar-products", params={"name": name})
+    return [p["name"] for p in response.json()]
+
+
+def test_similar_ignores_case_and_punctuation(client, grocy):
+    grocy.add_product("Mandarin Segments in Syrup - Woolworths")
+    grocy.add_product("Mandarin Segments in Juice - SPC")
+    grocy.add_product("Peaches Sliced in Syrup - Woolworths")
+    grocy.add_product("Golden Syrup - CSR")
+
+    assert similar(client, "Mandarin segments in syrup Woolworths") == [
+        "Mandarin Segments in Syrup - Woolworths",
+        "Mandarin Segments in Juice - SPC",
+        "Peaches Sliced in Syrup - Woolworths",
+    ]
+
+
+def test_similar_allows_extra_words(client, grocy):
+    grocy.add_product("Dark Peanut Butter Crunchy - Mayver's")
+    assert similar(client, "Dark Peanut Butter Crunchy Mayver's 100% peanuts") == [
+        "Dark Peanut Butter Crunchy - Mayver's"
+    ]
+
+
+def test_similar_drops_weak_and_inactive_matches(client, grocy):
+    grocy.add_product("Golden Syrup - CSR")
+    grocy.add_product("Mandarin Segments in Syrup - Woolworths", active=0)
+    assert similar(client, "Mandarin segments in syrup Woolworths") == []
+    assert similar(client, "") == []
+
+
+def test_similar_returns_at_most_five(client, grocy):
+    for n in range(8):
+        grocy.add_product(f"Baked beans {n}")
+    assert len(similar(client, "Baked beans")) == 5
