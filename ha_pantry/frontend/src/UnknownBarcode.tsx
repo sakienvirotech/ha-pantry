@@ -93,7 +93,7 @@ export function UnknownBarcode({ code, setup, run, onCreate, onLink, onCancel }:
               <p>Or search:</p>
             </>
           )}
-          <ProductSearch label="Search Grocy products" run={run} onPick={onLink} />
+          <ProductSearch label="Search Grocy products" run={run} onPick={onLink} compact />
           <h3>Or create a new product</h3>
           <div class="actions">
             <button type="button" disabled={!setup} onClick={() => setCreating(true)}>

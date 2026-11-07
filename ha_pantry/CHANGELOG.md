@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.5
+
+- On a new barcode, keep the Grocy product list in a short scrolling box, so the buttons below it stay on screen.
+
 ## 0.5.4
 
 - Credit Open Food Facts for lookup data under the Open Database License, and name and link Open Food Facts in picture credits, as its terms ask.
