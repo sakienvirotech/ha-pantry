@@ -1,104 +1,89 @@
-from collections.abc import Iterator
-from typing import Annotated, Literal
+from datetime import date
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
-from sqlalchemy import collate, func, or_, select, update
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
 
+from .grocy import Grocy, GrocyError, query
 from .lookup import ProductLookup
-from .models import Barcode, Product, Tag, product_tags
 
 router = APIRouter(prefix="/api")
 
-BARCODE_TAKEN = "That barcode is already in use."
-TAG_TAKEN = "That tag already exists."
+# Grocy's "never overdue" date. Leaving the date out would make stock due today.
+NEVER_DUE = date(2999, 12, 31)
+SEARCH_LIMIT = 50
 
 
-def get_session(request: Request) -> Iterator[Session]:
-    with Session(request.app.state.engine) as session:
-        yield session
+def get_grocy(request: Request) -> Grocy:
+    return request.app.state.grocy
 
 
-SessionDep = Annotated[Session, Depends(get_session)]
+GrocyDep = Annotated[Grocy, Depends(get_grocy)]
 ProductName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
 ]
-Brand = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
-ImageUrl = Annotated[str, StringConstraints(max_length=500, pattern=r"^https://")]
 BarcodeValue = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)
 ]
 
 
-TagName = Annotated[
-    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
-]
-TagKind = Literal["category", "location"]
-
-
 class WriteModel(BaseModel):
-    # Rejecting unknown fields stops a client from setting quantity on a product.
     model_config = ConfigDict(extra="forbid")
 
 
-class ProductUpdate(WriteModel):
+class ProductCreate(WriteModel):
     name: ProductName
-    brand: Brand | None = None
-    image_url: ImageUrl | None = None
-    tag_ids: list[int] = []
-
-
-class ProductCreate(ProductUpdate):
-    barcodes: list[BarcodeValue] = []
+    unit_id: int
+    location_id: int
+    group_id: int | None = None
+    barcode: BarcodeValue | None = None
 
 
 class BarcodeCreate(WriteModel):
     code: BarcodeValue
 
 
-class TagUpdate(WriteModel):
-    name: TagName
+class StockAdd(WriteModel):
+    amount: int = Field(default=1, ge=1, le=9999)
+    best_before_date: date | None = None
 
 
-class TagCreate(TagUpdate):
-    kind: TagKind
-
-
-class StockChange(WriteModel):
+class StockRemove(WriteModel):
     amount: int = Field(default=1, ge=1, le=9999)
 
 
-class BarcodeRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+class Named(BaseModel):
+    id: int
+    name: str
 
+
+class BarcodeRead(BaseModel):
     id: int
     code: str
 
 
-class TagRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class ProductView(BaseModel):
     id: int
     name: str
-    kind: TagKind
-
-
-class TagSummary(TagRead):
-    product_count: int
-
-
-class ProductRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    name: str
-    brand: str | None
-    quantity: int
-    image_url: str | None
+    # Whole numbers here, but Grocy allows fractions.
+    stock_amount: int | float
+    unit: str
+    location: str | None
+    group: str | None
     barcodes: list[BarcodeRead]
-    tags: list[TagRead]
+
+
+class Setup(BaseModel):
+    locations: list[Named]
+    units: list[Named]
+    groups: list[Named]
+    default_location_id: int | None
+
+
+class Status(BaseModel):
+    connected: bool
+    message: str | None = None
+    grocy_version: str | None = None
 
 
 class LookupMatch(BaseModel):
@@ -107,6 +92,7 @@ class LookupMatch(BaseModel):
     name: str
     brand: str | None
     image_url: str | None
+    quantity: str | None
     source: str
     source_url: str
 
@@ -117,58 +103,34 @@ class LookupResult(BaseModel):
     failed: bool
 
 
-def get_product_or_404(session: Session, product_id: int) -> Product:
-    product = session.get(Product, product_id)
-    if product is None:
-        raise HTTPException(404, "Product not found.")
-    return product
+def named(rows: list[dict[str, Any]]) -> list[Named]:
+    items = [Named(id=int(row["id"]), name=str(row["name"]).strip()) for row in rows]
+    return sorted(items, key=lambda item: item.name.casefold())
 
 
-def commit_unique(session: Session, conflict: str) -> None:
-    try:
-        session.commit()
-    except IntegrityError:
-        session.rollback()
-        raise HTTPException(409, conflict) from None
-
-
-def get_tag_or_404(session: Session, tag_id: int) -> Tag:
-    tag = session.get(Tag, tag_id)
-    if tag is None:
-        raise HTTPException(404, "Tag not found.")
-    return tag
-
-
-def load_tags(session: Session, tag_ids: list[int]) -> list[Tag]:
-    unique_ids = set(tag_ids)
-    tags = session.scalars(select(Tag).where(Tag.id.in_(unique_ids))).all()
-    if len(tags) != len(unique_ids):
-        raise HTTPException(422, "That tag no longer exists.")
-    return list(tags)
-
-
-def matches_term(term: str):
-    """One search word can match a product's name, brand, barcode or tag."""
-    return or_(
-        Product.name.icontains(term, autoescape=True),
-        Product.brand.icontains(term, autoescape=True),
-        Product.barcodes.any(Barcode.code.icontains(term, autoescape=True)),
-        Product.tags.any(Tag.name.icontains(term, autoescape=True)),
+def product_view(grocy: Grocy, product_id: int) -> ProductView:
+    details = grocy.get(f"stock/products/{product_id}")
+    product = details["product"]
+    group = None
+    if product.get("product_group_id"):
+        group = grocy.get(f"objects/product_groups/{product['product_group_id']}")["name"]
+    return ProductView(
+        id=int(product["id"]),
+        name=product["name"],
+        stock_amount=details.get("stock_amount") or 0,
+        unit=(details.get("quantity_unit_stock") or {}).get("name", ""),
+        location=(details.get("location") or {}).get("name"),
+        group=group,
+        barcodes=[
+            BarcodeRead(id=int(row["id"]), code=row["barcode"])
+            for row in details.get("product_barcodes") or []
+        ],
     )
 
 
-def change_stock(session: Session, product_id: int, delta: int) -> Product:
-    # A single conditional UPDATE, so concurrent changes can't lose counts.
-    result = session.execute(
-        update(Product)
-        .where(Product.id == product_id, Product.quantity + delta >= 0)
-        .values(quantity=Product.quantity + delta)
-    )
-    session.commit()
-    product = get_product_or_404(session, product_id)
-    if result.rowcount == 0:
-        raise HTTPException(409, "There isn't enough stock to remove.")
-    return product
+def barcode_owner(grocy: Grocy, code: str) -> int | None:
+    rows = grocy.get(f"objects/product_barcodes?{query('barcode', code)}")
+    return int(rows[0]["product_id"]) if rows else None
 
 
 @router.get("/health")
@@ -176,127 +138,129 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@router.get("/products", response_model=list[ProductRead])
-def list_products(
-    session: SessionDep,
-    q: str = "",
-    tag: Annotated[list[int], Query()] = [],
-):
-    query = select(Product).order_by(collate(Product.name, "NOCASE"))
-    for term in q.split():
-        query = query.where(matches_term(term))
-    for tag_id in tag:
-        query = query.where(Product.tags.any(Tag.id == tag_id))
-    return session.scalars(query).all()
+@router.get("/status", response_model=Status)
+def status(grocy: GrocyDep):
+    try:
+        info = grocy.get("system/info")
+    except GrocyError as error:
+        return Status(connected=False, message=error.message)
+    version = (info.get("grocy_version") or {}).get("Version")
+    return Status(connected=True, grocy_version=version)
 
 
-@router.post("/products", response_model=ProductRead, status_code=201)
-def create_product(body: ProductCreate, session: SessionDep):
-    product = Product(
-        name=body.name,
-        brand=body.brand or None,
-        image_url=body.image_url,
-        barcodes=[Barcode(code=code) for code in dict.fromkeys(body.barcodes)],
-        tags=load_tags(session, body.tag_ids),
+@router.get("/setup", response_model=Setup)
+def setup(grocy: GrocyDep):
+    locations = named(grocy.get("objects/locations"))
+    preset = grocy.get("user/settings").get("product_presets_location_id")
+    try:
+        default_location_id = int(preset)
+    except (TypeError, ValueError):
+        default_location_id = None
+    if default_location_id not in {location.id for location in locations}:
+        default_location_id = None
+    return Setup(
+        locations=locations,
+        units=named(grocy.get("objects/quantity_units")),
+        groups=named(grocy.get("objects/product_groups")),
+        default_location_id=default_location_id,
     )
-    session.add(product)
-    commit_unique(session, BARCODE_TAKEN)
-    return product
 
 
-@router.get("/products/{product_id}", response_model=ProductRead)
-def get_product(product_id: int, session: SessionDep):
-    return get_product_or_404(session, product_id)
+@router.get("/products", response_model=list[Named])
+def search_products(grocy: GrocyDep, q: str = ""):
+    # Filtered here, so matching ignores case for every alphabet.
+    terms = q.casefold().split()
+    products = [
+        product
+        for product in named([p for p in grocy.get("objects/products") if p.get("active", 1)])
+        if all(term in product.name.casefold() for term in terms)
+    ]
+    return products[:SEARCH_LIMIT]
 
 
-@router.put("/products/{product_id}", response_model=ProductRead)
-def update_product(product_id: int, body: ProductUpdate, session: SessionDep):
-    product = get_product_or_404(session, product_id)
-    product.name = body.name
-    product.brand = body.brand or None
-    product.image_url = body.image_url
-    product.tags = load_tags(session, body.tag_ids)
-    session.commit()
-    return product
+@router.post("/products", response_model=ProductView, status_code=201)
+def create_product(body: ProductCreate, grocy: GrocyDep):
+    created = grocy.post(
+        "objects/products",
+        {
+            "name": body.name,
+            "location_id": body.location_id,
+            "product_group_id": body.group_id,
+            "qu_id_purchase": body.unit_id,
+            "qu_id_stock": body.unit_id,
+            "qu_id_consume": body.unit_id,
+            "qu_id_price": body.unit_id,
+        },
+    )
+    product_id = int(created["created_object_id"])
+    if body.barcode:
+        try:
+            grocy.post(
+                "objects/product_barcodes",
+                {"product_id": product_id, "barcode": body.barcode},
+            )
+        except GrocyError:
+            # Don't leave a product behind that the scan can never find.
+            grocy.delete(f"objects/products/{product_id}")
+            raise
+    return product_view(grocy, product_id)
 
 
-@router.delete("/products/{product_id}", status_code=204)
-def delete_product(product_id: int, session: SessionDep) -> None:
-    session.delete(get_product_or_404(session, product_id))
-    session.commit()
+@router.get("/products/{product_id}", response_model=ProductView)
+def get_product(product_id: int, grocy: GrocyDep):
+    return product_view(grocy, product_id)
 
 
-@router.post("/products/{product_id}/stock/add", response_model=ProductRead)
-def add_stock(
-    product_id: int, session: SessionDep, body: StockChange = StockChange()
-):
-    return change_stock(session, product_id, body.amount)
+@router.post("/products/{product_id}/stock/add", response_model=ProductView)
+def add_stock(product_id: int, grocy: GrocyDep, body: StockAdd = StockAdd()):
+    grocy.post(
+        f"stock/products/{product_id}/add",
+        {
+            "amount": body.amount,
+            "best_before_date": (body.best_before_date or NEVER_DUE).isoformat(),
+            "transaction_type": "purchase",
+        },
+    )
+    return product_view(grocy, product_id)
 
 
-@router.post("/products/{product_id}/stock/remove", response_model=ProductRead)
-def remove_stock(
-    product_id: int, session: SessionDep, body: StockChange = StockChange()
-):
-    return change_stock(session, product_id, -body.amount)
+@router.post("/products/{product_id}/stock/remove", response_model=ProductView)
+def remove_stock(product_id: int, grocy: GrocyDep, body: StockRemove = StockRemove()):
+    grocy.post(
+        f"stock/products/{product_id}/consume",
+        {"amount": body.amount, "transaction_type": "consume", "spoiled": False},
+    )
+    return product_view(grocy, product_id)
 
 
 @router.post(
-    "/products/{product_id}/barcodes", response_model=ProductRead, status_code=201
+    "/products/{product_id}/barcodes", response_model=ProductView, status_code=201
 )
-def add_barcode(product_id: int, body: BarcodeCreate, session: SessionDep):
-    product = get_product_or_404(session, product_id)
-    product.barcodes.append(Barcode(code=body.code))
-    commit_unique(session, BARCODE_TAKEN)
-    return product
+def add_barcode(product_id: int, body: BarcodeCreate, grocy: GrocyDep):
+    grocy.post(
+        "objects/product_barcodes", {"product_id": product_id, "barcode": body.code}
+    )
+    return product_view(grocy, product_id)
 
 
 @router.delete(
-    "/products/{product_id}/barcodes/{barcode_id}", response_model=ProductRead
+    "/products/{product_id}/barcodes/{barcode_id}", response_model=ProductView
 )
-def remove_barcode(product_id: int, barcode_id: int, session: SessionDep):
-    product = get_product_or_404(session, product_id)
-    barcode = session.get(Barcode, barcode_id)
-    if barcode is None or barcode.product_id != product_id:
-        raise HTTPException(404, "Barcode not found.")
-    product.barcodes.remove(barcode)
-    session.commit()
-    return product
+def remove_barcode(product_id: int, barcode_id: int, grocy: GrocyDep):
+    barcode = grocy.get(f"objects/product_barcodes/{barcode_id}")
+    if not barcode or int(barcode["product_id"]) != product_id:
+        raise GrocyError(404, "Barcode not found.")
+    grocy.delete(f"objects/product_barcodes/{barcode_id}")
+    return product_view(grocy, product_id)
 
 
-@router.get("/tags", response_model=list[TagSummary])
-def list_tags(session: SessionDep):
-    rows = session.execute(
-        select(Tag, func.count(product_tags.c.product_id))
-        .outerjoin(product_tags)
-        .group_by(Tag.id)
-        .order_by(Tag.kind, Tag.name)
-    )
-    return [
-        TagSummary(id=tag.id, name=tag.name, kind=tag.kind, product_count=count)
-        for tag, count in rows
-    ]
-
-
-@router.post("/tags", response_model=TagRead, status_code=201)
-def create_tag(body: TagCreate, session: SessionDep):
-    tag = Tag(name=body.name, kind=body.kind)
-    session.add(tag)
-    commit_unique(session, TAG_TAKEN)
-    return tag
-
-
-@router.put("/tags/{tag_id}", response_model=TagRead)
-def rename_tag(tag_id: int, body: TagUpdate, session: SessionDep):
-    tag = get_tag_or_404(session, tag_id)
-    tag.name = body.name
-    commit_unique(session, TAG_TAKEN)
-    return tag
-
-
-@router.delete("/tags/{tag_id}", status_code=204)
-def delete_tag(tag_id: int, session: SessionDep) -> None:
-    session.delete(get_tag_or_404(session, tag_id))
-    session.commit()
+# A :path converter, because Code 128 barcodes can contain slashes.
+@router.get("/barcodes/{code:path}", response_model=ProductView)
+def get_product_by_barcode(code: str, grocy: GrocyDep):
+    product_id = barcode_owner(grocy, code)
+    if product_id is None:
+        raise GrocyError(404, "Barcode not found.")
+    return product_view(grocy, product_id)
 
 
 # Plain def on purpose: FastAPI runs it in a thread, as lookups wait on the network.
@@ -307,12 +271,3 @@ def lookup_barcode(code: str, request: Request):
     return LookupResult(
         match=LookupMatch.model_validate(match) if match else None, failed=failed
     )
-
-
-# A :path converter, because Code 128 barcodes can contain slashes.
-@router.get("/barcodes/{code:path}", response_model=ProductRead)
-def get_product_by_barcode(code: str, session: SessionDep):
-    barcode = session.scalar(select(Barcode).where(Barcode.code == code))
-    if barcode is None:
-        raise HTTPException(404, "Barcode not found.")
-    return barcode.product

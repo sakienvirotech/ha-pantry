@@ -1,7 +1,7 @@
 name: HA-Pantry
-version: "0.4.0"
+version: "0.5.0"
 slug: ha_pantry
-description: Barcode-driven pantry stock and shopping lists
+description: Scanner-first front end for getting your pantry into Grocy
 arch:
   - aarch64
   - amd64
@@ -15,6 +15,9 @@ panel_title: Pantry
 panel_admin: false
 backup: cold
 options:
+  grocy_url: http://a0d7b954-grocy
   upcitemdb_fallback: false
 schema:
+  grocy_url: url
+  grocy_api_key: password?
   upcitemdb_fallback: bool

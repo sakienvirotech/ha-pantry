@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0
+
+HA-Pantry is now a front end for Grocy, which stores all data. Products, barcodes, tags and stock from earlier versions are not moved to Grocy.
+
+- Set the Grocy URL and API key in the App's configuration.
+- A scanned barcode opens its Grocy product, with buttons to add or remove stock. Added stock is never overdue unless you pick a due date.
+- An unknown barcode can be attached to an existing Grocy product, or used to create a new one. The form pre-fills the name in "Name - Brand" form and suggests units matching the pack size.
+- Remove tags, search by tag, and the local database. Use Grocy for these.
+
 ## 0.4.0
 
 - Add category and location tags, which can be set on a product and renamed or deleted from a new tags page.

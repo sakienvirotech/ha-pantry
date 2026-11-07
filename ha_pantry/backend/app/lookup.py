@@ -16,7 +16,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 # Open Food Facts asks for AppName/Version, ideally with contact details.
-USER_AGENT = "HA-Pantry/0.4 (Home Assistant app)"
+USER_AGENT = "HA-Pantry/0.5 (Home Assistant app)"
 TIMEOUT_SECONDS = 5
 MAX_RESPONSE_BYTES = 2_000_000
 MAX_TEXT_LENGTH = 200
@@ -37,6 +37,8 @@ class Match:
     name: str
     brand: str | None
     image_url: str | None
+    # Pack size as printed, such as "400 g", used to suggest a Grocy unit.
+    quantity: str | None
     source: str
     source_url: str
 
@@ -107,7 +109,7 @@ class OpenFoodFacts:
     def search(code: str, fetch: Fetch) -> Match | None:
         data = fetch(
             f"{OPEN_FOOD_FACTS_URL}/api/v3.6/product/{code}.json"
-            "?fields=product_name,brands,image_url"
+            "?fields=product_name,brands,image_url,quantity"
         )
         product = (data or {}).get("product")
         if not isinstance(product, dict):
@@ -119,6 +121,7 @@ class OpenFoodFacts:
             name=name,
             brand=clean_text(product.get("brands")),
             image_url=clean_image_url(product.get("image_url")),
+            quantity=clean_text(product.get("quantity")),
             source=OpenFoodFacts.name,
             source_url=f"{OPEN_FOOD_FACTS_URL}/product/{code}",
         )
@@ -142,6 +145,7 @@ class UpcItemDb:
             name=name,
             brand=clean_text(items[0].get("brand")),
             image_url=None,
+            quantity=clean_text(items[0].get("size")),
             source=UpcItemDb.name,
             source_url=f"https://www.upcitemdb.com/upc/{code}",
         )

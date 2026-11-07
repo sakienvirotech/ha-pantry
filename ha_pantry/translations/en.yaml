@@ -1,4 +1,12 @@
 configuration:
+  grocy_url:
+    name: Grocy URL
+    description: >-
+      Where HA-Pantry reaches Grocy. The default suits the Grocy App from the
+      Home Assistant Community Apps repository.
+  grocy_api_key:
+    name: Grocy API key
+    description: Create one in Grocy under Manage API keys.
   upcitemdb_fallback:
     name: Use UPCitemdb as a fallback
     description: >-

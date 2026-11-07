@@ -1,21 +1,21 @@
 import json
 import logging
 import os
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api import router
-from .db import create_db_engine, run_migrations
+from .grocy import Grocy, GrocyError
 from .lookup import ProductLookup
 
 logger = logging.getLogger(__name__)
 
 INGRESS_PROXY = "172.30.32.2"
+# The Grocy App from the Home Assistant Community Apps repository.
+DEFAULT_GROCY_URL = "http://a0d7b954-grocy"
 DEFAULT_STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
 
 
@@ -39,14 +39,7 @@ def create_app(
     allowed = allowed_clients or os.environ.get("ALLOWED_CLIENTS", INGRESS_PROXY)
     allowed_hosts = {host.strip() for host in allowed.split(",")}
 
-    @asynccontextmanager
-    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        app.state.engine = create_db_engine(data_dir)
-        run_migrations(app.state.engine)
-        yield
-        app.state.engine.dispose()
-
-    app = FastAPI(title="HA-Pantry", lifespan=lifespan, docs_url=None, redoc_url=None)
+    app = FastAPI(title="HA-Pantry", docs_url=None, redoc_url=None)
 
     @app.middleware("http")
     async def restrict_clients(request: Request, call_next):
@@ -57,7 +50,16 @@ def create_app(
             return PlainTextResponse("Forbidden", status_code=403)
         return await call_next(request)
 
+    @app.exception_handler(GrocyError)
+    async def grocy_error(_request: Request, error: GrocyError):
+        return JSONResponse({"detail": error.message}, status_code=error.status)
+
     options = load_options(data_dir)
+    # Environment variables are for local development, outside Home Assistant.
+    app.state.grocy = Grocy(
+        options.get("grocy_url") or os.environ.get("GROCY_URL", DEFAULT_GROCY_URL),
+        options.get("grocy_api_key") or os.environ.get("GROCY_API_KEY", ""),
+    )
     app.state.lookup = ProductLookup(
         use_upcitemdb=bool(options.get("upcitemdb_fallback"))
     )

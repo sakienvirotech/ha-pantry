@@ -1,30 +1,23 @@
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { lookupBarcode } from "./api";
-import type { LookupResult, Product, ProductDetails, Tag, TagKind } from "./api";
-import { ProductForm } from "./ProductForm";
+import type { LookupResult, Named, NewProduct, Setup } from "./api";
+import { NewProductForm } from "./NewProductForm";
+import { ProductImage } from "./ProductImage";
+import { ProductSearch } from "./ProductSearch";
 
 interface Props {
   code: string;
-  products: Product[];
-  tags: Tag[];
-  onCreateTag: (name: string, kind: TagKind) => Promise<Tag | null>;
-  onCreate: (details: ProductDetails) => void;
-  onLink: (productId: number) => void;
+  setup: Setup | undefined;
+  run: (action: () => Promise<void>) => Promise<boolean>;
+  onCreate: (product: Omit<NewProduct, "barcode">) => void;
+  onLink: (product: Named) => void;
   onCancel: () => void;
 }
 
-export function UnknownBarcode({
-  code,
-  products,
-  tags,
-  onCreateTag,
-  onCreate,
-  onLink,
-  onCancel,
-}: Props) {
-  const [productId, setProductId] = useState("");
-  // Undefined while waiting. The form is usable throughout, as the lookup is only a help.
+export function UnknownBarcode({ code, setup, run, onCreate, onLink, onCancel }: Props) {
+  // Undefined while waiting. Both paths work throughout, as the lookup is only a help.
   const [lookup, setLookup] = useState<LookupResult>();
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     let current = true;
@@ -38,67 +31,50 @@ export function UnknownBarcode({
     };
   }, [code]);
 
-  const match = lookup?.match;
-  // Memoised so a re-render can't refill a field the user has just cleared.
-  const suggestion = useMemo(
-    () => (match ? { ...match, brand: match.brand ?? "" } : null),
-    [match],
-  );
+  const match = lookup?.match ?? null;
 
   return (
     <article>
       <h2>New barcode</h2>
       <p class="code">{code}</p>
-
-      <h3>Add a product</h3>
       <p role="status">
         {!lookup && "Looking this up online…"}
         {match && (
           <>
-            Found on{" "}
             <a href={match.source_url} target="_blank" rel="noreferrer">
               {match.source}
-            </a>
-            . Check the details before saving.
+            </a>{" "}
+            says: <strong>{match.name}</strong>
+            {match.brand && <>, {match.brand}</>}
+            {match.quantity && <>, {match.quantity}</>}
           </>
         )}
-        {lookup && !match && !lookup.failed && "No match online. Enter the details below."}
-        {lookup &&
-          !match &&
-          lookup.failed &&
-          "Online lookup isn't available right now. Enter the details below."}
+        {lookup && !match && !lookup.failed && "No match online."}
+        {lookup && !match && lookup.failed && "Online lookup isn't available right now."}
       </p>
-      <ProductForm
-        suggestion={suggestion}
-        tags={tags}
-        onCreateTag={onCreateTag}
-        submitLabel="Add product"
-        onSubmit={onCreate}
-        onCancel={onCancel}
-      />
+      {match?.image_url && <ProductImage url={match.image_url} />}
 
-      {products.length > 0 && (
+      {creating && setup ? (
         <>
-          <h3>Or add this barcode to a product</h3>
+          <h3>Create a new product</h3>
+          <NewProductForm
+            setup={setup}
+            match={match}
+            onSubmit={onCreate}
+            onCancel={() => setCreating(false)}
+          />
+        </>
+      ) : (
+        <>
+          <h3>Add this barcode to a product already in Grocy</h3>
+          <ProductSearch label="Search Grocy products" run={run} onPick={onLink} />
+          <h3>Or create a new product</h3>
           <div class="actions">
-            <select
-              aria-label="Product"
-              value={productId}
-              onChange={(event) => setProductId(event.currentTarget.value)}
-            >
-              <option value="">Choose a product</option>
-              {products.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              disabled={!productId}
-              onClick={() => onLink(Number(productId))}
-            >
-              Add barcode
+            <button type="button" disabled={!setup} onClick={() => setCreating(true)}>
+              Create a new product
+            </button>
+            <button type="button" onClick={onCancel}>
+              Cancel
             </button>
           </div>
         </>

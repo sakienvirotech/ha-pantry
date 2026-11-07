@@ -14,6 +14,7 @@ OFF_HIT = {
         "product_name": " Rolled oats ",
         "brands": "Uncle Tobys",
         "image_url": "https://images.openfoodfacts.org/oats.jpg",
+        "quantity": "500 g",
     }
 }
 UPC_HIT = {
@@ -42,6 +43,7 @@ def test_open_food_facts_match():
     assert match.name == "Rolled oats"
     assert match.brand == "Uncle Tobys"
     assert match.image_url == OFF_HIT["product"]["image_url"]
+    assert match.quantity == "500 g"
     assert match.source == "Open Food Facts"
     assert failed is False
 
@@ -192,28 +194,6 @@ def test_lookup_endpoint_failure_is_still_ok(client):
     response = client.get(f"/api/lookup/{CODE}")
     assert response.status_code == 200
     assert response.json() == {"match": None, "failed": True}
-
-
-def test_lookup_saves_nothing(client):
-    client.app.state.lookup = ProductLookup(fetch=FakeSources(off=OFF_HIT))
-    client.get(f"/api/lookup/{CODE}")
-    assert client.get("/api/products").json() == []
-    assert client.get(f"/api/barcodes/{CODE}").status_code == 404
-
-
-def test_image_is_saved_and_can_be_cleared(client):
-    url = "https://images.openfoodfacts.org/oats.jpg"
-    product = client.post("/api/products", json={"name": "Oats", "image_url": url})
-    assert product.json()["image_url"] == url
-    product_id = product.json()["id"]
-    edited = client.put(f"/api/products/{product_id}", json={"name": "Oats"})
-    assert edited.json()["image_url"] is None
-
-
-@pytest.mark.parametrize("url", ["http://x/a.jpg", "javascript:alert(1)"])
-def test_image_must_be_https(client, url):
-    response = client.post("/api/products", json={"name": "Oats", "image_url": url})
-    assert response.status_code == 422
 
 
 @pytest.mark.parametrize(

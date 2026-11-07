@@ -1,46 +1,50 @@
+export interface Named {
+  id: number;
+  name: string;
+}
+
 export interface Barcode {
   id: number;
   code: string;
 }
 
-export type TagKind = "category" | "location";
-
-export interface Tag {
-  id: number;
-  name: string;
-  kind: TagKind;
-}
-
-export interface TagSummary extends Tag {
-  product_count: number;
-}
-
+/** A Grocy product, with its stock in the product's stock unit. */
 export interface Product {
   id: number;
   name: string;
-  brand: string | null;
-  quantity: number;
-  image_url: string | null;
+  stock_amount: number;
+  unit: string;
+  location: string | null;
+  group: string | null;
   barcodes: Barcode[];
-  tags: Tag[];
 }
 
-export interface Suggestion {
+export interface Setup {
+  locations: Named[];
+  units: Named[];
+  groups: Named[];
+  default_location_id: number | null;
+}
+
+export interface Status {
+  connected: boolean;
+  message: string | null;
+  grocy_version: string | null;
+}
+
+export interface NewProduct {
   name: string;
-  brand: string;
+  unit_id: number;
+  location_id: number;
+  group_id: number | null;
+  barcode?: string;
+}
+
+export interface LookupMatch {
+  name: string;
+  brand: string | null;
   image_url: string | null;
-}
-
-export interface ProductDetails extends Suggestion {
-  tag_ids: number[];
-}
-
-export interface ProductQuery {
-  text: string;
-  tagIds: number[];
-}
-
-export interface LookupMatch extends Suggestion {
+  quantity: string | null;
   source: string;
   source_url: string;
 }
@@ -74,13 +78,14 @@ async function request<T>(path: string, method = "GET", body?: unknown): Promise
   return response.status === 204 ? (undefined as T) : response.json();
 }
 
-export function listProducts({ text, tagIds }: ProductQuery = { text: "", tagIds: [] }) {
-  const params = new URLSearchParams();
-  if (text) params.set("q", text);
-  tagIds.forEach((id) => params.append("tag", String(id)));
-  const query = params.toString();
-  return request<Product[]>(query ? `products?${query}` : "products");
-}
+export const getStatus = () => request<Status>("status");
+
+export const getSetup = () => request<Setup>("setup");
+
+export const searchProducts = (text: string) =>
+  request<Named[]>(`products?q=${encodeURIComponent(text)}`);
+
+export const getProduct = (id: number) => request<Product>(`products/${id}`);
 
 export const findByBarcode = (code: string) =>
   request<Product>(`barcodes/${encodeURIComponent(code)}`);
@@ -88,17 +93,14 @@ export const findByBarcode = (code: string) =>
 export const lookupBarcode = (code: string) =>
   request<LookupResult>(`lookup/${encodeURIComponent(code)}`);
 
-export const createProduct = (details: ProductDetails, barcodes: string[]) =>
-  request<Product>("products", "POST", { ...details, barcodes });
+export const createProduct = (product: NewProduct) =>
+  request<Product>("products", "POST", product);
 
-export const updateProduct = (id: number, details: ProductDetails) =>
-  request<Product>(`products/${id}`, "PUT", details);
-
-export const deleteProduct = (id: number) =>
-  request<void>(`products/${id}`, "DELETE");
-
-export const addStock = (id: number) =>
-  request<Product>(`products/${id}/stock/add`, "POST");
+export const addStock = (id: number, bestBeforeDate: string | null) =>
+  request<Product>(`products/${id}/stock/add`, "POST", {
+    amount: 1,
+    best_before_date: bestBeforeDate,
+  });
 
 export const removeStock = (id: number) =>
   request<Product>(`products/${id}/stock/remove`, "POST");
@@ -108,13 +110,3 @@ export const linkBarcode = (id: number, code: string) =>
 
 export const unlinkBarcode = (id: number, barcodeId: number) =>
   request<Product>(`products/${id}/barcodes/${barcodeId}`, "DELETE");
-
-export const listTags = () => request<TagSummary[]>("tags");
-
-export const createTag = (name: string, kind: TagKind) =>
-  request<Tag>("tags", "POST", { name, kind });
-
-export const renameTag = (id: number, name: string) =>
-  request<Tag>(`tags/${id}`, "PUT", { name });
-
-export const deleteTag = (id: number) => request<void>(`tags/${id}`, "DELETE");

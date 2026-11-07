@@ -10,8 +10,10 @@ Backend, from `ha_pantry/backend/`:
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/pytest                                 # all tests
 .venv/bin/pytest tests/test_app.py::test_health  # single test
-DATA_DIR=./data ALLOWED_CLIENTS='*' .venv/bin/uvicorn app.main:create_app --factory --port 8099
+DATA_DIR=./data ALLOWED_CLIENTS='*' GROCY_URL=... GROCY_API_KEY=... .venv/bin/uvicorn app.main:create_app --factory --port 8099
 ```
+
+Tests use `tests/fake_grocy.py`, an in-memory Grocy that copies the real API's behaviour. When the real Grocy behaves differently, change the fake to match.
 
 Frontend, from `ha_pantry/frontend/`: `npm ci`, then `npm run dev` (proxies `/api` to port 8099), `npm run build` (type-checks and bundles), or `npm test` (`npx vitest run src/scanner.test.ts -t "<name>"` for a single test).
 
@@ -19,7 +21,7 @@ Image, from `ha_pantry/`: `docker build -t ha-pantry:test .`
 
 ## Architecture
 
-HA-Pantry ships as a single Home Assistant App (formerly "add-on") for HAOS/Supervised, with its UI in the HA sidebar through Ingress. This repo is also the App repository (`repository.yaml`). `ha_pantry/backend` is FastAPI, SQLAlchemy and Alembic on SQLite at `/data/pantry.db`, and it serves the `ha_pantry/frontend` Preact SPA. The SPA uses the same JSON API a future companion integration would use, so keep all behaviour behind `/api`.
+HA-Pantry ships as a single Home Assistant App (formerly "add-on") for HAOS/Supervised, with its UI in the HA sidebar through Ingress. This repo is also the App repository (`repository.yaml`). Grocy stores all pantry data, and HA-Pantry keeps no database of its own. `ha_pantry/backend` is FastAPI. It talks to Grocy's REST API (`app/grocy.py`) with an API key from the App options, so the key never reaches the browser, and it serves the `ha_pantry/frontend` Preact SPA. Keep all behaviour behind `/api`.
 
 Constraints that are easy to break:
 
@@ -27,46 +29,28 @@ Constraints that are easy to break:
 - All frontend URLs must be relative (`api/products`, not `/api/products`), because Ingress serves the app under a dynamic path.
 - HA handles login at the Ingress proxy, so the app rejects any client but `172.30.32.2` (`ALLOWED_CLIENTS` overrides this; `*` is for local development only). Uvicorn runs with `--no-proxy-headers` so forwarded headers can't spoof the client address.
 - The image uses the HA base image's s6 `/init`, which clears the environment for `CMD` unless `S6_KEEP_ENV=1`, set in the Dockerfile. `init: false` in `config.yaml` is required with these images.
-- Migrations run on startup. Every schema change needs an Alembic revision in `backend/migrations/versions/`.
+- Grocy returns some errors as raw SQL. `app/grocy.py` turns known ones into plain messages and hides the rest, so add new cases there.
+- Grocy rejects a product without `location_id` and all four `qu_id_*` units, and stock added without `best_before_date` becomes due today. HA-Pantry sends `2999-12-31`, Grocy's "never overdue", unless the user picks a date.
 - Follow the current HA contributor docs at contributors.home-assistant.io/apps/: `build.yaml` is deprecated and `BUILD_FROM` is no longer passed.
 
-Decisions for upcoming work:
+Decisions:
 
-- Stock is a whole number that changes only through explicit add and remove API actions, and can't go below zero.
-- Each tag has a kind, either category or location. Shopping lists group by category tags.
-- One product can have several barcodes, so barcodes get their own table.
-- Product lookup is a chain: Open Food Facts, an optional configured fallback, then manual entry. Results only pre-fill the form, and lookup failures must never block manual entry.
-- The shopping list is a query, not stored data. Items with no price are flagged rather than counted as zero.
+- HA-Pantry only makes it quick to get things into Grocy: scanning, attaching barcodes, creating products and adding or removing stock. Detailed editing, deleting, recipes, expiry tracking and shopping lists stay in Grocy's own UI.
+- A new product needs only a name, unit, location and an optional product group. The unit list puts units matching the online pack size first, as units in this household's Grocy are pack sizes such as "Can - 440g". Creating units stays in Grocy.
+- A scan opens the product and waits for a tap, so a double scan can't change stock.
+- Product lookup is a chain: Open Food Facts, an optional configured fallback, then manual entry. Results only pre-fill the form, and lookup failures must never block manual entry. Names follow the household's "Name - Brand" pattern.
 - Scans arrive as keystrokes, detected as a fast burst ending in Enter. They only reach the Ingress iframe when it has focus, so prove changes here with a real scanner.
 
-Out of scope for now: companion integration, headless or camera scanning, stock history, expiry dates, multiple pantries.
+The standalone version, with its own SQLite database, tags, suppliers and shopping lists, is kept for reference on the `standalone-step-6` branch and in the history up to 0.4.0.
 
-## Long-term goal: Grocy export and import
-
-Exchanging data with Grocy, in both directions, is planned but not scheduled for the first few releases. Don't build it yet, but don't make design choices that would rule it out. In particular, it lets people move to or from HA-Pantry without re-entering their pantry.
-
-Keep these in mind when changing the data model:
-
-- Barcodes are the natural key for matching products between the two systems, so keep them in their own table and don't assume they are unique to one source.
-- Tag kinds map to Grocy's separate concepts for categories and storage locations, so keep every tag's kind accurate.
-- Grocy models things HA-Pantry deliberately doesn't, such as quantity units and expiry dates. Decide what happens to that data on import, and don't lose it silently: report what was skipped.
-- Stock is deliberately whole numbers, but Grocy quantities may not be. An import should round or flag fractional amounts, and report them.
-- Keep import and export behind the API like everything else, and confirm Grocy's current API and data model when this work starts.
+Out of scope for now: companion integration, headless or camera scanning, multiple Grocy instances, product pictures in Grocy.
 
 ## Product intent
 
-HA-Pantry is a Home Assistant app for barcode-driven home pantry stock and shopping management. It is deliberately narrower in scope than Grocy: favour a simple workflow that needs little setup over configurability.
+HA-Pantry is a scanner-first front end for Grocy, as a Home Assistant app. Grocy is powerful, but adding products to it is slow. HA-Pantry makes the common jobs a scan and a tap, and leaves everything else to Grocy.
 
 Core workflow, which should stay the centre of the design:
 
-- The user scans a barcode with a plain Bluetooth or USB scanner.
-- If the product is already in the pantry, open its details so stock can be added or removed, or the record edited.
-- If the product is unknown, run a web search to identify it, pre-fill as much detail as possible, and let the user add it.
-
-Domain concepts:
-
-- **Tags** categorise products. Each is either a product category or a storage location.
-- **Search** works by tag, barcode, or product name.
-- **Stock count** changes only by adding to or removing from the pantry.
-- **Minimum stock quantities** drive the shopping list, which can be grouped by product category.
-- **Preferred supplier and price** on a product allow a per-supplier shopping list with an estimated total cost.
+- The user scans a barcode with a plain Bluetooth or USB scanner, usually on a tablet.
+- If Grocy knows the barcode, open the product so stock can be added or removed.
+- If not, look it up online and offer two paths: attach the barcode to a product already in Grocy, which is common because many existing products have no barcode yet, or create a new product pre-filled from the lookup.

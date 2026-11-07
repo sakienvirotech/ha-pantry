@@ -1,12 +1,14 @@
 # ha-pantry
 
-HA-Pantry is a Home Assitant app that is designed to be an easy to use, barcode driven stock/shopping management for the home pantry.
-It is intentionally more limited in scope that, for instance, Grocy, and is designed to have a simple workflow that doesn't require huge amounts of setup to get going.  Just use a simple bluetooth or USB barcode scanner, scan the product.  If the product is already in the pantry it opens the details and allows you to add or remove stock, or otherwise edit the record.  If the product doesn't exist yet it looks the barcode up in online product databases, starting with Open Food Facts, to identify the product and fill in as much detail as possible so that you can easily add it to your pantry. If nothing is found you can enter the details by hand.
+HA-Pantry is a Home Assistant app that makes it quick to get your pantry into [Grocy](https://grocy.info). Grocy does a lot, from stock and shopping lists to recipes, but adding products to it takes many steps. HA-Pantry is a scanner-first front end: plug in a simple Bluetooth or USB barcode scanner and scan.
 
-Products can then be categorised with tags.  Tags can be used to group similar products together, or to provide storage locations.  You can search by tag, barcode, or product name.
+- If Grocy already knows the barcode, the product opens so you can add or remove stock with a tap.
+- If it doesn't, HA-Pantry looks the barcode up online, starting with Open Food Facts, and offers to attach it to a product already in Grocy, or to create a new product with the details filled in.
 
-Count of product is managed by add or remove from pantry.  You can set minimum stock quantities and get a shopping list, which can be grouped by product categories.  Products may have preferred supplier details, and prices added so that a shopping list can be made for each supplier, with an estimated total cost.
+Everything is stored in Grocy, so recipes, expiry dates, shopping lists and detailed editing all stay there.
 
-## Roadmap
+## Setup
 
-Export to and import from Grocy is a long-term goal, so that you can move an existing pantry in either direction without re-entering it. It is not planned for the first few releases.
+1. Install Grocy, for example the Grocy App from the Home Assistant Community Apps repository.
+2. In Grocy, create an API key under Manage API keys.
+3. Install HA-Pantry from this repository, enter the API key in its configuration, and change the Grocy URL if your Grocy isn't the Community App.
