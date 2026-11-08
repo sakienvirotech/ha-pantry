@@ -25,7 +25,37 @@ class FakeGrocy:
             "product_groups": {1: {"id": 1, "name": "Grains"}},
             "products": {},
             "product_barcodes": {},
+            # Like the real household's: options one per line, some with a
+            # trailing space, and blank lines at the end.
+            "userfields": {
+                3: {
+                    "id": 3, "entity": "products", "name": "shelf", "caption": "Shelf",
+                    "type": "preset-checklist", "config": "Red\nLarge Wire Basket \nTeal",
+                    "input_required": 0, "default_value": None,
+                },
+                4: {
+                    "id": 4, "entity": "products", "name": "box", "caption": "Box",
+                    "type": "preset-checklist", "config": "Pasta\nTeas\n\n",
+                    "input_required": 0, "default_value": None,
+                },
+                5: {
+                    "id": 5, "entity": "products", "name": "notes", "caption": "Notes",
+                    "type": "text-single-line", "config": None,
+                    "input_required": 0, "default_value": None,
+                },
+                6: {
+                    "id": 6, "entity": "products", "name": "manual", "caption": "Manual",
+                    "type": "file", "config": None,
+                    "input_required": 0, "default_value": None,
+                },
+                7: {
+                    "id": 7, "entity": "chores", "name": "room", "caption": "Room",
+                    "type": "text-single-line", "config": None,
+                    "input_required": 0, "default_value": None,
+                },
+            },
         }
+        self.userfield_values = {}  # product id -> {name: value}
         self.files = {}  # picture file name -> bytes
         self.stock = {}  # product id -> list of (amount, best_before_date)
         self.settings = {"product_presets_location_id": "3"}
@@ -58,6 +88,9 @@ class FakeGrocy:
             if any(p["name"] == body["name"] for p in self.objects["products"].values()):
                 return sql_error("UNIQUE constraint failed: products.name")
             body = {"active": 1, **body}
+        if entity == "quantity_units":
+            if any(u["name"] == body["name"] for u in self.objects["quantity_units"].values()):
+                return sql_error("UNIQUE constraint failed: quantity_units.name")
         if entity == "product_barcodes":
             codes = [b["barcode"] for b in self.objects["product_barcodes"].values()]
             if body["barcode"] in codes:
@@ -139,6 +172,16 @@ class FakeGrocy:
             if row is None:
                 return 404, {"error_message": "Object not found"}
             return 200, row
+        if m := re.fullmatch(r"userfields/products/(\d+)", path):
+            values = self.userfield_values.setdefault(int(m[1]), {})
+            if method == "PUT":
+                values.update(payload)
+                return 204, None
+            names = [
+                f["name"] for f in self.objects["userfields"].values()
+                if f["entity"] == "products"
+            ]
+            return 200, {name: values.get(name) for name in names}
         if m := re.fullmatch(r"stock/products/(\d+)", path):
             return self.details(int(m[1]))
         if m := re.fullmatch(r"stock/products/(\d+)/(add|consume)", path):

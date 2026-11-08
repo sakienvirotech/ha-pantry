@@ -12,6 +12,7 @@ Everything is stored in Grocy, so recipes, expiry dates, shopping lists and deta
 1. Install Grocy, for example the Grocy App from the Home Assistant Community Apps repository.
 2. In Grocy, create an API key under Manage API keys.
 3. In Home Assistant, add `https://github.com/sakienvirotech/ha-pantry` as an App repository and install HA-Pantry. Enter the API key in its configuration, and change the Grocy URL if your Grocy isn't the Community App.
+4. Optionally, list Grocy product userfields to fill in when creating a product, such as `shelf` or `box`, under "Grocy userfields to fill in". Use each field's name from Grocy's Userfields page, not its caption.
 
 ## Tested on
 

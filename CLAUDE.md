@@ -29,6 +29,7 @@ Constraints that are easy to break:
 
 - `backend/` and `frontend/` must stay inside `ha_pantry/`: the Supervisor builds on the device with that folder as the Docker context.
 - All frontend URLs must be relative (`api/products`, not `/api/products`), because Ingress serves the app under a dynamic path.
+  The one exception is the product's "Edit in Grocy" link to the Grocy App's panel, `/hassio/ingress/<slug>/product/<id>`, which is a Home Assistant page opened in the top window, not a call through Ingress.
 - HA handles login at the Ingress proxy, so the app rejects any client but `172.30.32.2` (`ALLOWED_CLIENTS` overrides this; `*` is for local development only). Uvicorn runs with `--no-proxy-headers` so forwarded headers can't spoof the client address.
 - The image uses the HA base image's s6 `/init`, which clears the environment for `CMD` unless `S6_KEEP_ENV=1`, set in the Dockerfile. `init: false` in `config.yaml` is required with these images.
 - Grocy returns some errors as raw SQL. `app/grocy.py` turns known ones into plain messages and hides the rest, so add new cases there.
@@ -38,7 +39,7 @@ Constraints that are easy to break:
 Decisions:
 
 - HA-Pantry only makes it quick to get things into Grocy: scanning, attaching barcodes, creating products and adding or removing stock. Detailed editing, deleting, recipes, expiry tracking and shopping lists stay in Grocy's own UI.
-- A new product needs only a name, unit, location and an optional product group. The unit list puts units matching the online pack size first, as units in this household's Grocy are pack sizes such as "Can - 440g". Creating units stays in Grocy.
+- A new product needs only a name, unit, location and an optional product group. The unit list puts units matching the online pack size first, as units in this household's Grocy are pack sizes such as "Can - 440g". A unit can be created from the new-product form by name only; plurals, conversions and editing units stay in Grocy. Optional Grocy product userfields, chosen by name in the App options, can be filled in when creating a product and are shown read-only on the product screen.
 - A scan opens the product and waits for a tap, so a double scan can't change stock.
 - Product lookup is a chain: Open Food Facts, an optional configured fallback, then manual entry. Results only pre-fill the form, and lookup failures must never block manual entry. Names follow the household's "Name - Brand" pattern.
 - Scans arrive as keystrokes, detected as a fast burst ending in Enter. They only reach the Ingress iframe when it has focus, so prove changes here with a real scanner.

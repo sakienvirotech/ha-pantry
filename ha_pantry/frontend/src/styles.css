@@ -63,6 +63,21 @@ select {
   margin-top: 16px;
 }
 
+.actions.tight {
+  margin-top: 0;
+}
+
+/* A button inside a sentence, which looks like a link. */
+button.link {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: LinkText;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .actions select {
   flex: 1;
   min-width: 0;
@@ -200,7 +215,7 @@ fieldset {
   display: grid;
   gap: 4px;
   max-width: 20rem;
-  margin: 0 auto 16px;
+  margin: 24px auto 0;
 }
 
 .problem {

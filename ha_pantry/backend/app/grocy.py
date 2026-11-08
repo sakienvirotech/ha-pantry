@@ -36,6 +36,11 @@ KNOWN_ERRORS = [
         409,
         "Grocy already has a product with that name.",
     ),
+    (
+        "UNIQUE constraint failed: quantity_units.name",
+        409,
+        "Grocy already has a unit with that name.",
+    ),
 ]
 
 

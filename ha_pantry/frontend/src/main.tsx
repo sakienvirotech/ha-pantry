@@ -14,6 +14,8 @@ type View =
   | { kind: "unknown"; code: string };
 
 const HOME: View = { kind: "home" };
+// Focus and visibility changes come in pairs, so one refresh covers both.
+const REFRESH_GAP_MS = 2000;
 
 function App() {
   const [view, setView] = useState<View>(HOME);
@@ -21,6 +23,8 @@ function App() {
   const [setup, setSetup] = useState<Setup>();
   const [error, setError] = useState("");
   const latestScan = useRef(0);
+  const connected = useRef(false);
+  const setupRefresh = useRef({ running: false, finished: 0 });
 
   async function run(action: () => Promise<void>) {
     setError("");
@@ -36,11 +40,42 @@ function App() {
   async function connect() {
     const result = await api.getStatus();
     setStatus(result);
+    connected.current = result.connected;
     if (result.connected) setSetup(await api.getSetup());
+  }
+
+  /**
+   * Picks up units, locations, groups and userfields added in Grocy since the
+   * app loaded, for example in another tab. A failure keeps the lists already
+   * shown, as they still work for creating a product.
+   */
+  async function refreshSetup(force = false) {
+    const state = setupRefresh.current;
+    if (!connected.current || state.running) return;
+    if (!force && Date.now() - state.finished < REFRESH_GAP_MS) return;
+    state.running = true;
+    try {
+      setSetup(await api.getSetup());
+    } catch {
+      // Keep the lists already shown.
+    } finally {
+      state.running = false;
+      state.finished = Date.now();
+    }
   }
 
   useEffect(() => {
     run(connect);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshSetup();
+    };
+    const onFocus = () => refreshSetup();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
+    };
   }, []);
 
   function handleScan(code: string) {
@@ -91,6 +126,10 @@ function App() {
               update(() => api.createProduct({ ...product, barcode: view.code }))
             }
             onLink={(product) => update(() => api.linkBarcode(product.id, view.code))}
+            onUnitCreated={(unit) =>
+              setSetup((current) => current && { ...current, units: [...current.units, unit] })
+            }
+            onRefreshSetup={refreshSetup}
             onCancel={() => setView(HOME)}
           />
         );

@@ -1,5 +1,5 @@
 name: HA-Pantry
-version: "0.5.5"
+version: "0.6.0"
 slug: ha_pantry
 description: Scanner-first front end for getting your pantry into Grocy
 url: https://github.com/sakienvirotech/ha-pantry
@@ -21,7 +21,10 @@ backup: cold
 options:
   grocy_url: http://a0d7b954-grocy
   upcitemdb_fallback: false
+  product_userfields: []
 schema:
   grocy_url: url
   grocy_api_key: password?
   upcitemdb_fallback: bool
+  product_userfields:
+    - str

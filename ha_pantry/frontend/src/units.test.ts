@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { fallbackUnit, parseSize, suggestedName, unitsMatchingSize } from "./units";
+import {
+  fallbackUnit,
+  formatSize,
+  parseSize,
+  suggestedName,
+  unitsMatchingSize,
+} from "./units";
 
 const units = [
   { id: 1, name: "Piece" },
@@ -24,6 +30,18 @@ describe("parseSize", () => {
 
   it.each(["Piece", "6 x", "12 pack", ""])("finds no size in %j", (text) => {
     expect(parseSize(text)).toBeNull();
+  });
+});
+
+describe("formatSize", () => {
+  it.each([
+    ["440 g", "440g"],
+    ["1kg", "1kg"],
+    ["1,5 L", "1.5l"],
+    ["1.25 L", "1.25l"],
+    ["500 mL", "500ml"],
+  ])("writes %j as %j", (text, written) => {
+    expect(formatSize(parseSize(text)!)).toBe(written);
   });
 });
 

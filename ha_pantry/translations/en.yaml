@@ -13,3 +13,10 @@ configuration:
       When Open Food Facts has no match, send the barcode to UPCitemdb, under
       its terms at https://devs.upcitemdb.com/termsofservice. It has more
       non-food products, and its free service allows 100 lookups a day.
+  product_userfields:
+    name: Grocy userfields to fill in
+    description: >-
+      Names of Grocy product userfields to show when creating a product, such
+      as shelf or box. Use the field's name from Grocy's Userfields page, not
+      its caption. Lists, checklists, text, numbers, dates and tick boxes are
+      supported.

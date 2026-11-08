@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0
+
+- On a product, the due date now comes before the stock buttons, as it applies to stock added after it's picked.
+- Link from a product to its page in Grocy, to edit or delete it. With the Grocy App, it opens Grocy's panel in Home Assistant.
+- Create a unit in Grocy from the new-product form, by name only, and use it straight away.
+- Pick up units, locations and groups added in Grocy while HA-Pantry is open, when you switch back to it, or with Reload units.
+- Fill in chosen Grocy product userfields, such as a shelf or box, when creating a product, and see them on its page. Name them in the new "Grocy userfields to fill in" setting.
+
 ## 0.5.5
 
 - On a new barcode, keep the Grocy product list in a short scrolling box, so the buttons below it stay on screen.

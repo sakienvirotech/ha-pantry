@@ -31,6 +31,19 @@ def load_options(data_dir: Path) -> dict:
         return {}
 
 
+def userfield_names(options: dict) -> list[str]:
+    """Product userfields to show, from the App options or, for development, PRODUCT_USERFIELDS."""
+    names = options.get("product_userfields")
+    if names is None:
+        names = os.environ.get("PRODUCT_USERFIELDS", "").split(",")
+    seen = []
+    for name in names:
+        name = str(name).strip()
+        if name and name not in seen:
+            seen.append(name)
+    return seen
+
+
 def create_app(
     data_dir: Path | None = None,
     allowed_clients: str | None = None,
@@ -65,6 +78,7 @@ def create_app(
         use_upcitemdb=bool(options.get("upcitemdb_fallback"))
     )
     app.state.fetch_picture = fetch_bytes
+    app.state.product_userfields = userfield_names(options)
     app.include_router(router)
     if static_dir.is_dir():
         app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")

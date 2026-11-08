@@ -1,3 +1,4 @@
+import { Fragment } from "preact";
 import { useState } from "preact/hooks";
 import type { Product } from "./api";
 import { isSavedOpenFoodFactsPicture, PictureCredit } from "./credits";
@@ -51,8 +52,24 @@ export function ProductDetail({
         <dd>{product.location ?? "Not set"}</dd>
         <dt>Group</dt>
         <dd>{product.group ?? "None"}</dd>
+        {product.userfields?.map((field) => (
+          <Fragment key={field.caption}>
+            <dt>{field.caption}</dt>
+            <dd>{field.value}</dd>
+          </Fragment>
+        ))}
       </dl>
 
+      {/* Before the buttons, as the date applies to stock added after it's picked. */}
+      <label class="due-date">
+        Due date for added stock
+        <input
+          type="date"
+          value={dueDate}
+          onInput={(event) => setDueDate(event.currentTarget.value)}
+        />
+        <small>Leave blank for never overdue.</small>
+      </label>
       <div class="stock">
         <button
           type="button"
@@ -72,15 +89,6 @@ export function ProductDetail({
           +
         </button>
       </div>
-      <label class="due-date">
-        Due date for added stock
-        <input
-          type="date"
-          value={dueDate}
-          onInput={(event) => setDueDate(event.currentTarget.value)}
-        />
-        <small>Leave blank for never overdue.</small>
-      </label>
 
       <h3>Barcodes</h3>
       {product.barcodes.length === 0 && <p>None yet.</p>}
@@ -95,12 +103,38 @@ export function ProductDetail({
         ))}
       </ul>
 
-      <p>Edit other details, or delete the product, in Grocy.</p>
+      {product.edit_url ? (
+        <p>
+          <GrocyLink url={product.edit_url} />
+        </p>
+      ) : (
+        <p>Edit other details, or delete the product, in Grocy.</p>
+      )}
       <div class="actions">
         <button type="button" onClick={onBack}>
           Back
         </button>
       </div>
     </article>
+  );
+}
+
+/**
+ * A Home Assistant route such as /hassio/ingress/a0d7b954_grocy/product/7 is
+ * absolute on purpose: it's a page of Home Assistant's own UI, not a call to
+ * this app's API through Ingress. It opens in the whole Home Assistant window
+ * rather than inside this app's frame. A Grocy outside Home Assistant opens in
+ * a new tab.
+ */
+function GrocyLink({ url }: { url: string }) {
+  const text = "Edit or delete this product in Grocy";
+  return url.startsWith("/") ? (
+    <a href={url} target="_top">
+      {text}
+    </a>
+  ) : (
+    <a href={url} target="_blank" rel="noopener noreferrer">
+      {text}
+    </a>
   );
 }

@@ -12,10 +12,22 @@ interface Props {
   run: (action: () => Promise<void>) => Promise<boolean>;
   onCreate: (product: Omit<NewProduct, "barcode">) => Promise<unknown>;
   onLink: (product: Named) => void;
+  onUnitCreated: (unit: Named) => void;
+  /** Reloads the lists from Grocy. `force` skips the check for a recent reload. */
+  onRefreshSetup: (force?: boolean) => Promise<void>;
   onCancel: () => void;
 }
 
-export function UnknownBarcode({ code, setup, run, onCreate, onLink, onCancel }: Props) {
+export function UnknownBarcode({
+  code,
+  setup,
+  run,
+  onCreate,
+  onLink,
+  onUnitCreated,
+  onRefreshSetup,
+  onCancel,
+}: Props) {
   // Undefined while waiting. Both paths work throughout, as the lookup is only a help.
   const [lookup, setLookup] = useState<LookupResult>();
   const [creating, setCreating] = useState(false);
@@ -72,6 +84,8 @@ export function UnknownBarcode({ code, setup, run, onCreate, onLink, onCancel }:
             setup={setup}
             match={match}
             onSubmit={onCreate}
+            onUnitCreated={onUnitCreated}
+            onReload={() => onRefreshSetup(true)}
             onCancel={() => setCreating(false)}
           />
         </>
@@ -96,7 +110,15 @@ export function UnknownBarcode({ code, setup, run, onCreate, onLink, onCancel }:
           <ProductSearch label="Search Grocy products" run={run} onPick={onLink} compact />
           <h3>Or create a new product</h3>
           <div class="actions">
-            <button type="button" disabled={!setup} onClick={() => setCreating(true)}>
+            <button
+              type="button"
+              disabled={!setup}
+              onClick={() => {
+                setCreating(true);
+                // In case units were added in Grocy after this page loaded.
+                onRefreshSetup();
+              }}
+            >
               Create a new product
             </button>
             <button type="button" onClick={onCancel}>

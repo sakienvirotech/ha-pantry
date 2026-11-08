@@ -19,8 +19,34 @@ export interface Product {
   barcodes: Barcode[];
   /** Grocy's picture file name, or null when the product has no picture. */
   picture: string | null;
+  /**
+   * The product's page in Grocy. Either a Home Assistant route such as
+   * /hassio/ingress/a0d7b954_grocy/product/7, or a full URL to a Grocy the
+   * browser can reach.
+   */
+  edit_url?: string | null;
+  /** The configured Grocy userfields that have a value. */
+  userfields?: { caption: string; value: string }[];
   /** Set when the main change worked but a lesser part of it didn't. */
   warning?: string | null;
+}
+
+/** A Grocy product userfield that the App options say to fill in. */
+export interface Userfield {
+  name: string;
+  caption: string;
+  type:
+    | "preset-list"
+    | "preset-checklist"
+    | "text-single-line"
+    | "number-integral"
+    | "number-decimal"
+    | "checkbox"
+    | "date";
+  /** For preset types, exactly as Grocy has them. Some end in a space. */
+  options: string[];
+  required: boolean;
+  default: string | null;
 }
 
 export interface Setup {
@@ -28,6 +54,7 @@ export interface Setup {
   units: Named[];
   groups: Named[];
   default_location_id: number | null;
+  userfields: Userfield[];
 }
 
 export interface Status {
@@ -43,6 +70,8 @@ export interface NewProduct {
   group_id: number | null;
   barcode?: string;
   image_url?: string | null;
+  /** Values by userfield name. Blank ones are left out. */
+  userfields?: Record<string, string>;
 }
 
 export interface LookupMatch {
@@ -103,6 +132,9 @@ export const lookupBarcode = (code: string) =>
 
 export const createProduct = (product: NewProduct) =>
   request<Product>("products", "POST", product);
+
+/** Creates a unit by name only. Plurals and conversions are set up in Grocy. */
+export const createUnit = (name: string) => request<Named>("units", "POST", { name });
 
 export const addStock = (id: number, bestBeforeDate: string | null) =>
   request<Product>(`products/${id}/stock/add`, "POST", {

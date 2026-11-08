@@ -17,6 +17,13 @@ export function parseSize(text: string): Size | null {
   return { amount: Math.round(amount), kind: KIND[unit] };
 }
 
+/** Writes a size the way unit names do, such as "440g", "1kg" or "1.5l". */
+export function formatSize(size: Size): string {
+  const [small, large] = size.kind === "mass" ? ["g", "kg"] : ["ml", "l"];
+  if (size.amount < 1000) return `${size.amount}${small}`;
+  return `${Number((size.amount / 1000).toFixed(3))}${large}`;
+}
+
 /** Grocy units whose name includes the same pack size, such as "Can - 440g". */
 export function unitsMatchingSize(units: Named[], quantity: string | null): Named[] {
   const size = quantity ? parseSize(quantity) : null;

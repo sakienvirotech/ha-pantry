@@ -40,6 +40,7 @@ def test_options_configure_grocy(tmp_path: Path):
     app = create_app(data_dir=tmp_path, allowed_clients="testclient")
     assert app.state.grocy.url == "http://grocy.local"
     assert app.state.grocy.api_key == "abc"
+    assert app.state.product_userfields == []
 
 
 def test_unreachable_grocy_gives_a_clear_error(client, monkeypatch):
@@ -95,6 +96,8 @@ def test_scan_finds_a_product_by_any_barcode(client, grocy):
             {"id": body["barcodes"][1]["id"], "code": "222222"},
         ],
         "picture": None,
+        "edit_url": f"http://grocy/product/{product_id}",
+        "userfields": [],
         "warning": None,
     }
 
