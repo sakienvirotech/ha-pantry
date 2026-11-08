@@ -176,12 +176,14 @@ def grocy_edit_url(grocy_url: str, product_id: int) -> str:
     """The product's page in Grocy, for the browser rather than the backend.
 
     The Grocy App's own address only works inside Home Assistant, so it links
-    to the App's panel instead, which Home Assistant opens through Ingress.
+    to the App's panel instead. Home Assistant 2026.11 serves App panels at
+    /app/<slug> and always opens them at the App's front page, so that link
+    can't reach the product itself.
     """
     parts = urlsplit(grocy_url)
     host = parts.hostname or ""
     if APP_HOST.fullmatch(host) and parts.port in (None, 80) and parts.path in ("", "/"):
-        return f"/hassio/ingress/{host.replace('-', '_')}/product/{product_id}"
+        return f"/app/{host.replace('-', '_')}"
     return f"{grocy_url.rstrip('/')}/product/{product_id}"
 
 

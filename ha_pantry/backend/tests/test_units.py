@@ -46,9 +46,9 @@ def test_unusable_unit_name_rejected_before_grocy(client, grocy, name):
 @pytest.mark.parametrize(
     ("url", "expected"),
     [
-        ("http://a0d7b954-grocy", "/hassio/ingress/a0d7b954_grocy/product/7"),
-        ("http://a0d7b954-grocy:80/", "/hassio/ingress/a0d7b954_grocy/product/7"),
-        ("http://local-my-grocy", "/hassio/ingress/local_my_grocy/product/7"),
+        ("http://a0d7b954-grocy", "/app/a0d7b954_grocy"),
+        ("http://a0d7b954-grocy:80/", "/app/a0d7b954_grocy"),
+        ("http://local-my-grocy", "/app/local_my_grocy"),
         ("http://192.168.0.5:9283", "http://192.168.0.5:9283/product/7"),
         ("https://grocy.example.com/", "https://grocy.example.com/product/7"),
         ("http://grocy", "http://grocy/product/7"),

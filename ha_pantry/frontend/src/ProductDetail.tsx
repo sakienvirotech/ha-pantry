@@ -120,21 +120,24 @@ export function ProductDetail({
 }
 
 /**
- * A Home Assistant route such as /hassio/ingress/a0d7b954_grocy/product/7 is
- * absolute on purpose: it's a page of Home Assistant's own UI, not a call to
- * this app's API through Ingress. It opens in the whole Home Assistant window
- * rather than inside this app's frame. A Grocy outside Home Assistant opens in
- * a new tab.
+ * A Home Assistant route such as /app/a0d7b954_grocy is absolute on purpose:
+ * it's a page of Home Assistant's own UI, not a call to this app's API
+ * through Ingress. It opens in the whole Home Assistant window rather than
+ * inside this app's frame, at Grocy's front page, as Home Assistant can't
+ * open an App at a page of its own. A Grocy outside Home Assistant opens at
+ * the product, in a new tab.
  */
 function GrocyLink({ url }: { url: string }) {
-  const text = "Edit or delete this product in Grocy";
   return url.startsWith("/") ? (
-    <a href={url} target="_top">
-      {text}
-    </a>
+    <>
+      <a href={url} target="_top">
+        Open Grocy
+      </a>{" "}
+      to edit or delete this product.
+    </>
   ) : (
     <a href={url} target="_blank" rel="noopener noreferrer">
-      {text}
+      Edit or delete this product in Grocy
     </a>
   );
 }

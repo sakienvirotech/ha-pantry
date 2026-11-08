@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1
+
+- Fix the Grocy link on a product, which gave a 404 with the Grocy App. Home Assistant now serves App panels at a new address and always opens them at their front page, so the link is now "Open Grocy". A Grocy outside Home Assistant still opens at the product.
+
 ## 0.6.0
 
 - On a product, the due date now comes before the stock buttons, as it applies to stock added after it's picked.

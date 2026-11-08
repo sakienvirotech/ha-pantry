@@ -20,9 +20,9 @@ export interface Product {
   /** Grocy's picture file name, or null when the product has no picture. */
   picture: string | null;
   /**
-   * The product's page in Grocy. Either a Home Assistant route such as
-   * /hassio/ingress/a0d7b954_grocy/product/7, or a full URL to a Grocy the
-   * browser can reach.
+   * Where to edit the product in Grocy. Either the Grocy App's panel in Home
+   * Assistant, such as /app/a0d7b954_grocy, which opens at Grocy's front
+   * page, or a full URL to the product in a Grocy the browser can reach.
    */
   edit_url?: string | null;
   /** The configured Grocy userfields that have a value. */

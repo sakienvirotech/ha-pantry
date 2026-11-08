@@ -29,7 +29,7 @@ Constraints that are easy to break:
 
 - `backend/` and `frontend/` must stay inside `ha_pantry/`: the Supervisor builds on the device with that folder as the Docker context.
 - All frontend URLs must be relative (`api/products`, not `/api/products`), because Ingress serves the app under a dynamic path.
-  The one exception is the product's "Edit in Grocy" link to the Grocy App's panel, `/hassio/ingress/<slug>/product/<id>`, which is a Home Assistant page opened in the top window, not a call through Ingress.
+  The one exception is the product's link to the Grocy App's panel, `/app/<slug>`, which is a Home Assistant page opened in the top window, not a call through Ingress. Since HA 2026.11 App panels live at `/app/<slug>` (the old `/hassio/ingress/<slug>` gives a 404) and always open at the App's front page, so a deep link to a Grocy product isn't possible.
 - HA handles login at the Ingress proxy, so the app rejects any client but `172.30.32.2` (`ALLOWED_CLIENTS` overrides this; `*` is for local development only). Uvicorn runs with `--no-proxy-headers` so forwarded headers can't spoof the client address.
 - The image uses the HA base image's s6 `/init`, which clears the environment for `CMD` unless `S6_KEEP_ENV=1`, set in the Dockerfile. `init: false` in `config.yaml` is required with these images.
 - Grocy returns some errors as raw SQL. `app/grocy.py` turns known ones into plain messages and hides the rest, so add new cases there.
